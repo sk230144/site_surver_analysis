@@ -1,0 +1,15 @@
+for backend -
+
+
+# In one terminal - start Docker services
+cd C:\Users\PC-8\Downloads\solar-ai-platform-starter-v2
+docker compose up -d
+
+# In another terminal - start backend
+cd C:\Users\PC-8\Downloads\solar-ai-platform-starter-v2\backend
+.venv\Scripts\uvicorn app.main:app --reload --host 0.0.0.0 --port 800
+
+
+# Press CTRL+C in the backend terminal
+# Then stop Docker:
+docker compose down

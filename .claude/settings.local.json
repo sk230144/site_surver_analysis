@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venvScriptspip list)",
+      "Bash(.venv/Scripts/pip:*)",
+      "Bash(.venv/Scripts/alembic upgrade head)",
+      "Bash(docker exec:*)",
+      "Bash(docker compose:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(timeout 15 bash -c 'until docker exec solar-ai-platform-starter-v2-db-1 pg_isready -U solar 2>/dev/null; do sleep 1; done':*)",
+      "Bash(docker logs:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(docker restart:*)",
+      "Bash(PGPASSWORD= .venv/Scripts/python:*)",
+      "Bash(docker port:*)",
+      "Bash(cat:*)",
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(.venv/Scripts/uvicorn:*)"
+    ]
+  }
+}
