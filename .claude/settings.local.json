@@ -20,7 +20,10 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
-      "Bash(.venv/Scripts/uvicorn:*)"
+      "Bash(.venv/Scripts/uvicorn:*)",
+      "Bash(powershell:*)",
+      "Bash(timeout 15 bash:*)",
+      "Bash(.venvScriptsuvicorn app.main:app --reload --host 0.0.0.0 --port 8000)"
     ]
   }
 }

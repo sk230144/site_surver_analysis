@@ -1,35 +1,38 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Any
+from datetime import datetime
 
 class ProjectCreate(BaseModel):
     name: str
     address: str | None = None
 
 class ProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     name: str
     address: str | None
     status: str
-    class Config:
-        from_attributes = True
+    created_at: datetime
 
 class AssetCreate(BaseModel):
-    kind: str = Field(..., description="photo|model|drone|doc")
+    kind: str = Field(..., description="photo|drone_model|document")
     filename: str
     content_type: str | None = None
     storage_url: str
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    meta: dict[str, Any] = Field(default_factory=dict)
 
 class AssetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     project_id: int
     kind: str
     filename: str
     content_type: str | None
     storage_url: str
-    metadata: dict[str, Any]
-    class Config:
-        from_attributes = True
+    meta: dict[str, Any]
+    created_at: datetime
 
 class RoofPlaneCreate(BaseModel):
     name: str | None = None
@@ -38,10 +41,11 @@ class RoofPlaneCreate(BaseModel):
     polygon_wkt: str
 
 class RoofPlaneOut(RoofPlaneCreate):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     project_id: int
-    class Config:
-        from_attributes = True
+    created_at: datetime
 
 class ObstructionCreate(BaseModel):
     type: str
@@ -49,20 +53,22 @@ class ObstructionCreate(BaseModel):
     height_m: float | None = None
 
 class ObstructionOut(ObstructionCreate):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     project_id: int
-    class Config:
-        from_attributes = True
+    created_at: datetime
 
 class LayoutCreate(BaseModel):
     name: str = "Layout v1"
     data: dict[str, Any] = Field(default_factory=dict)
 
 class LayoutOut(LayoutCreate):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     project_id: int
-    class Config:
-        from_attributes = True
+    created_at: datetime
 
 class RuleSetCreate(BaseModel):
     jurisdiction: str
@@ -70,31 +76,29 @@ class RuleSetCreate(BaseModel):
     rules: dict[str, Any] = Field(default_factory=dict)
 
 class RuleSetOut(RuleSetCreate):
-    id: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
-class AnalysisRequest(BaseModel):
-    kind: str = Field(..., description="shading|compliance|roof_risk|electrical")
+    id: int
+    created_at: datetime
 
 class AnalysisOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     project_id: int
     kind: str
     status: str
-    result: dict
-    class Config:
-        from_attributes = True
-
-class ReportRequest(BaseModel):
-    include_assets: bool = True
-    include_analysis: bool = True
+    result: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
 
 class ReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     project_id: int
     status: str
     storage_url: str | None
-    metadata: dict
-    class Config:
-        from_attributes = True
+    meta: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
