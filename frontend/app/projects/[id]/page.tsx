@@ -20,12 +20,27 @@ export default function ProjectDetailPage() {
   const reportsQ = useQuery({ queryKey: ["reports", id], queryFn: () => apiGet<Report[]>(`/projects/${id}/reports`) });
 
   const [kind, setKind] = React.useState("photo");
-  const [filename, setFilename] = React.useState("example.jpg");
-  const [storageUrl, setStorageUrl] = React.useState("https://example.com/file");
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [viewingPdfUrl, setViewingPdfUrl] = React.useState<string | null>(null);
 
-  const addAsset = useMutation({
-    mutationFn: () => apiPost<Asset>(`/projects/${id}/assets`, { kind, filename, storage_url: storageUrl, meta: {} }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["assets", id] }),
+  const uploadAsset = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("kind", kind);
+      formData.append("file", file);
+
+      const res = await fetch(`http://localhost:8000/projects/${id}/assets/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assets", id] });
+      setSelectedFile(null);
+    },
   });
 
   const runAnalysis = useMutation({
@@ -34,6 +49,11 @@ export default function ProjectDetailPage() {
 
   const genReport = useMutation({
     mutationFn: () => apiPost<Report>(`/projects/${id}/reports/generate`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reports", id] }),
+  });
+
+  const deleteReport = useMutation({
+    mutationFn: (reportId: number) => fetch(`http://localhost:8000/reports/${reportId}`, { method: "DELETE" }).then(res => res.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reports", id] }),
   });
 
@@ -80,7 +100,7 @@ export default function ProjectDetailPage() {
 
       <div className="content-grid">
         <section className="section-card">
-          <h3 className="section-title">Assets</h3>
+          <h3 className="section-title">Assets - Upload Files</h3>
           <div className="form-group">
             <div className="input-row">
               <select className="select" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -89,21 +109,24 @@ export default function ProjectDetailPage() {
                 <option value="document">📄 Document</option>
               </select>
               <input
+                type="file"
                 className="input"
                 style={{ flex: 1 }}
-                value={filename}
-                onChange={(e) => setFilename(e.target.value)}
-                placeholder="Filename"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                accept="image/*,.pdf,.zip,.obj,.fbx"
               />
             </div>
-            <input
-              className="input input-full"
-              value={storageUrl}
-              onChange={(e) => setStorageUrl(e.target.value)}
-              placeholder="Storage URL"
-            />
-            <button className="btn" onClick={() => addAsset.mutate()} disabled={addAsset.isPending}>
-              {addAsset.isPending ? "Uploading..." : "➕ Add Asset"}
+            {selectedFile && (
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+              </div>
+            )}
+            <button
+              className="btn"
+              onClick={() => selectedFile && uploadAsset.mutate(selectedFile)}
+              disabled={!selectedFile || uploadAsset.isPending}
+            >
+              {uploadAsset.isPending ? "Uploading..." : "📤 Upload File"}
             </button>
           </div>
 
@@ -116,11 +139,58 @@ export default function ProjectDetailPage() {
           <ul className="asset-list">
             {(assetsQ.data || []).map((a) => (
               <li key={a.id} className="asset-item">
-                <div className="asset-title">
-                  <span className={`badge ${getBadgeClass(a.kind)}`}>{a.kind}</span>
-                  {a.filename}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {a.content_type?.startsWith('image/') ? (
+                    <img
+                      src={`http://localhost:8000${a.storage_url}`}
+                      alt={a.filename}
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        objectFit: 'cover',
+                        borderRadius: '0.5rem',
+                        border: '1px solid var(--border-color)'
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: '0.5rem',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '2rem'
+                      }}
+                    >
+                      📄
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <div className="asset-title">
+                      <span className={`badge ${getBadgeClass(a.kind)}`}>{a.kind}</span>
+                      {a.filename}
+                    </div>
+                    <div className="asset-url">
+                      <a
+                        href={`http://localhost:8000${a.storage_url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}
+                      >
+                        {a.content_type?.startsWith('image/') ? '🔍 View' : '⬇️ Download'}
+                      </a>
+                      {a.meta?.file_size && (
+                        <span style={{ marginLeft: '1rem', color: 'var(--text-muted)' }}>
+                          ({(a.meta.file_size / 1024).toFixed(2)} KB)
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="asset-url">{a.storage_url}</div>
               </li>
             ))}
           </ul>
@@ -165,12 +235,52 @@ export default function ProjectDetailPage() {
                     {r.status}
                   </span>
                 </div>
-                {r.storage_url && <div className="asset-url">{r.storage_url}</div>}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {r.storage_url && r.status === "done" && (
+                    <button
+                      className="btn btn-small"
+                      onClick={() => setViewingPdfUrl(r.storage_url || null)}
+                    >
+                      📄 View Report
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-small"
+                    style={{ background: 'var(--error)', borderColor: 'var(--error)' }}
+                    onClick={() => {
+                      if (confirm(`Delete Report #${r.id}?`)) {
+                        deleteReport.mutate(r.id);
+                      }
+                    }}
+                    disabled={deleteReport.isPending}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         </section>
       </div>
+
+      {/* PDF Viewer Modal */}
+      {viewingPdfUrl && (
+        <div className="modal-overlay" onClick={() => setViewingPdfUrl(null)}>
+          <div className="pdf-viewer-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pdf-viewer-header">
+              <h3>Report PDF Viewer</h3>
+              <button className="close-btn" onClick={() => setViewingPdfUrl(null)}>
+                ✕
+              </button>
+            </div>
+            <iframe
+              src={viewingPdfUrl.replace('file://', 'http://localhost:8000/').replace('reports_out', 'reports_files').replace(/\\/g, '/')}
+              className="pdf-viewer-iframe"
+              title="PDF Report"
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

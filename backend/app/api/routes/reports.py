@@ -4,6 +4,8 @@ from sqlalchemy import select
 from app.api.deps import get_db
 from app.api.schemas import ReportOut
 from app.db.models import Project, Report
+from pathlib import Path
+import os
 
 router = APIRouter(tags=["reports"])
 
@@ -35,3 +37,25 @@ def generate_report(project_id: int, db: Session = Depends(get_db)):
         pass  # Continue even if worker not available
 
     return rep
+
+@router.delete("/reports/{report_id}")
+def delete_report(report_id: int, db: Session = Depends(get_db)):
+    """Delete a report and its associated PDF file"""
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Delete the PDF file if it exists
+    if report.storage_url:
+        try:
+            # storage_url looks like: file://reports_out/project_7_report_11.pdf
+            file_path = report.storage_url.replace('file://', '')
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            # Log error but continue with DB deletion
+            print(f"Error deleting report file: {e}")
+
+    db.delete(report)
+    db.commit()
+    return {"ok": True, "message": "Report deleted"}

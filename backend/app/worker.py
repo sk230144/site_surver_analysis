@@ -67,7 +67,7 @@ def run_report_task(report_id: int, project_id: int) -> None:
 
         pdf_bytes = build_minimal_report(
             project={"id": proj.id, "name": proj.name, "address": proj.address},
-            assets=[{"kind": a.kind, "filename": a.filename, "storage_url": a.storage_url} for a in assets],
+            assets=[{"kind": a.kind, "filename": a.filename, "storage_url": a.storage_url, "content_type": a.content_type} for a in assets],
             analyses=[{"kind": r.kind, "status": r.status} for r in analyses],
         )
 
