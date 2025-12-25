@@ -30,7 +30,11 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "Bash(tasklist:*)",
-      "Bash(.venvScriptscelery -A app.worker worker --loglevel=info --pool=solo)"
+      "Bash(.venvScriptscelery -A app.worker worker --loglevel=info --pool=solo)",
+      "Bash(PGPASSWORD=solar123 .venv/Scripts/python:*)",
+      "Bash(docker run:*)",
+      "Bash(timeout 5 .venv/Scripts/python:*)",
+      "Bash(timeout 5 bash:*)"
     ]
   }
 }

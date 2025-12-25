@@ -17,7 +17,15 @@ export default function ProjectDetailPage() {
 
   const projectQ = useQuery({ queryKey: ["project", id], queryFn: () => apiGet<Project>(`/projects/${id}`) });
   const assetsQ = useQuery({ queryKey: ["assets", id], queryFn: () => apiGet<Asset[]>(`/projects/${id}/assets`) });
-  const reportsQ = useQuery({ queryKey: ["reports", id], queryFn: () => apiGet<Report[]>(`/projects/${id}/reports`) });
+  const reportsQ = useQuery({
+    queryKey: ["reports", id],
+    queryFn: () => apiGet<Report[]>(`/projects/${id}/reports`),
+    refetchInterval: (query) => {
+      // Auto-refresh every 3 seconds if there are any queued/running reports
+      const hasActiveReports = query.state.data?.some(r => r.status === "queued" || r.status === "running");
+      return hasActiveReports ? 3000 : false;
+    },
+  });
 
   const [kind, setKind] = React.useState("photo");
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
