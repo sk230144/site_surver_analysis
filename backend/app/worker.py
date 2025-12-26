@@ -5,10 +5,12 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.db.models import AnalysisResult, RoofPlane, Obstruction, Asset, Report, Project
 from app.services.shading import run_shading_analysis
+from app.services.shading_advanced import run_advanced_shading_analysis
 from app.services.compliance import run_compliance_check
 from app.services.roof_risk import run_roof_risk
 from app.services.electrical import run_electrical_feasibility
 from app.services.reports import build_minimal_report
+import os
 
 celery_app = Celery("solar_platform", broker=settings.REDIS_URL, backend=settings.REDIS_URL)
 
@@ -31,10 +33,53 @@ def run_analysis_task(record_id: int, kind: str, project_id: int) -> None:
         if kind == "shading":
             planes = db.execute(select(RoofPlane).where(RoofPlane.project_id == project_id)).scalars().all()
             obs = db.execute(select(Obstruction).where(Obstruction.project_id == project_id)).scalars().all()
-            rec.result = run_shading_analysis(
-                roof_planes=[{"id": p.id, "polygon_wkt": p.polygon_wkt} for p in planes],
-                obstructions=[{"id": o.id, "polygon_wkt": o.polygon_wkt, "type": o.type} for o in obs],
-            )
+
+            # Get project for location data
+            project = db.get(Project, project_id)
+
+            # Use advanced analysis if USE_ADVANCED_SHADING env var is set
+            use_advanced = os.getenv("USE_ADVANCED_SHADING", "true").lower() == "true"
+
+            if use_advanced:
+                # Default to San Francisco if no location specified
+                # In production, this should come from project.latitude, project.longitude
+                latitude = 37.7749  # San Francisco
+                longitude = -122.4194
+
+                rec.result = run_advanced_shading_analysis(
+                    roof_planes=[{
+                        "id": p.id,
+                        "polygon_wkt": p.polygon_wkt,
+                        "name": p.name,
+                        "tilt_deg": p.tilt_deg,
+                        "azimuth_deg": p.azimuth_deg
+                    } for p in planes],
+                    obstructions=[{
+                        "id": o.id,
+                        "polygon_wkt": o.polygon_wkt,
+                        "type": o.type,
+                        "height_m": o.height_m
+                    } for o in obs],
+                    latitude=latitude,
+                    longitude=longitude
+                )
+            else:
+                # Use simple heuristic analysis
+                rec.result = run_shading_analysis(
+                    roof_planes=[{
+                        "id": p.id,
+                        "polygon_wkt": p.polygon_wkt,
+                        "name": p.name,
+                        "tilt_deg": p.tilt_deg,
+                        "azimuth_deg": p.azimuth_deg
+                    } for p in planes],
+                    obstructions=[{
+                        "id": o.id,
+                        "polygon_wkt": o.polygon_wkt,
+                        "type": o.type,
+                        "height_m": o.height_m
+                    } for o in obs],
+                )
         elif kind == "compliance":
             rec.result = {"summary": "Compliance scaffold", "violations": run_compliance_check({}, {})}
         elif kind == "roof_risk":
@@ -68,7 +113,7 @@ def run_report_task(report_id: int, project_id: int) -> None:
         pdf_bytes = build_minimal_report(
             project={"id": proj.id, "name": proj.name, "address": proj.address},
             assets=[{"kind": a.kind, "filename": a.filename, "storage_url": a.storage_url, "content_type": a.content_type} for a in assets],
-            analyses=[{"kind": r.kind, "status": r.status} for r in analyses],
+            analyses=[{"kind": r.kind, "status": r.status, "result": r.result} for r in analyses],
         )
 
         import os

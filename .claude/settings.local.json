@@ -34,7 +34,12 @@
       "Bash(PGPASSWORD=solar123 .venv/Scripts/python:*)",
       "Bash(docker run:*)",
       "Bash(timeout 5 .venv/Scripts/python:*)",
-      "Bash(timeout 5 bash:*)"
+      "Bash(timeout 5 bash:*)",
+      "Bash(..\\\\.venv\\\\Scripts\\\\uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(..\\\\.venv\\\\Scripts\\\\celery -A app.worker worker --loglevel=info --pool=solo)",
+      "Bash(../.venv/Scripts/python:*)",
+      "Bash(timeout 3 bash:*)",
+      "Bash(timeout 2 bash:*)"
     ]
   }
 }
