@@ -312,6 +312,126 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const renderComplianceResult = (result: any) => {
+    if (!result || Object.keys(result).length === 0) return null;
+
+    const status = result.overall_status || 'unknown';
+    const score = result.compliance_score || 0;
+    const violations = result.violations || [];
+
+    // Status colors and icons
+    const statusConfig = {
+      pass: { color: '#10b981', bg: '#10b98110', icon: '✅', label: 'PASS' },
+      warning: { color: '#f59e0b', bg: '#f59e0b10', icon: '⚠️', label: 'WARNING' },
+      fail: { color: '#ef4444', bg: '#ef444410', icon: '❌', label: 'FAIL' },
+      unknown: { color: '#6b7280', bg: '#6b728010', icon: '❓', label: 'UNKNOWN' }
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.unknown;
+
+    return (
+      <div style={{
+        marginTop: '0.75rem',
+        padding: '0.75rem',
+        background: 'var(--bg-tertiary)',
+        borderRadius: '0.5rem',
+        fontSize: '0.9rem'
+      }}>
+        {/* Overall Status */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '0.75rem',
+          padding: '0.5rem',
+          background: config.bg,
+          borderLeft: `4px solid ${config.color}`,
+          borderRadius: '0.25rem'
+        }}>
+          <div style={{ fontWeight: 700, fontSize: '1rem', color: config.color }}>
+            {config.icon} {config.label}
+          </div>
+          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: config.color }}>
+            Score: {score}/100
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+          {result.summary}
+        </div>
+
+        {/* Violations */}
+        {violations.length > 0 && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+              Issues Found ({violations.length}):
+            </div>
+            {violations.slice(0, 3).map((violation: any, idx: number) => {
+              const severityColor = violation.severity === 'high' ? '#ef4444' : violation.severity === 'medium' ? '#f59e0b' : '#6b7280';
+              const severityBg = violation.severity === 'high' ? '#ef444410' : violation.severity === 'medium' ? '#f59e0b10' : '#6b728010';
+
+              return (
+                <div key={idx} style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem',
+                  background: severityBg,
+                  borderLeft: `3px solid ${severityColor}`,
+                  borderRadius: '0.25rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                      {violation.rule_name}
+                    </div>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      padding: '0.1rem 0.4rem',
+                      borderRadius: '0.25rem',
+                      background: severityColor,
+                      color: 'white',
+                      fontWeight: 600,
+                      textTransform: 'uppercase'
+                    }}>
+                      {violation.severity}
+                    </span>
+                  </div>
+                  {violation.affected_plane && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                      📍 {violation.affected_plane}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                    {violation.message}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    💡 Fix: {violation.fix_suggestion}
+                  </div>
+                </div>
+              );
+            })}
+            {violations.length > 3 && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                + {violations.length - 3} more issue(s)
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Checked planes info */}
+        <div style={{
+          marginTop: '0.75rem',
+          padding: '0.5rem',
+          background: 'var(--bg-secondary)',
+          borderRadius: '0.25rem',
+          fontSize: '0.75rem',
+          color: 'var(--text-muted)'
+        }}>
+          Checked {result.checked_planes || 0} of {result.total_planes || 0} roof plane(s) with layouts
+        </div>
+      </div>
+    );
+  };
+
   // Filter and sort analysis results
   const filteredAnalyses = React.useMemo(() => {
     let filtered = analysisQ.data || [];
@@ -553,7 +673,9 @@ export default function ProjectDetailPage() {
 
                     {analysis.status === 'done' && analysis.kind === 'shading' && renderShadingResult(analysis.result)}
 
-                    {analysis.status === 'done' && analysis.kind !== 'shading' && analysis.result?.summary && (
+                    {analysis.status === 'done' && analysis.kind === 'compliance' && renderComplianceResult(analysis.result)}
+
+                    {analysis.status === 'done' && analysis.kind !== 'shading' && analysis.kind !== 'compliance' && analysis.result?.summary && (
                       <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                         {analysis.result.summary}
                       </div>

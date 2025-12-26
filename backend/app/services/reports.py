@@ -304,8 +304,93 @@ def build_minimal_report(project, assets, analyses) -> bytes:
                 c.drawString(65, y - 10, recommendation_text)
                 y -= 40
 
+        # Compliance analysis - detailed display
+        elif kind == "compliance" and status == "done" and result:
+            overall_status = result.get('overall_status', 'unknown')
+            score = result.get('compliance_score', 0)
+            violations = result.get('violations', [])
+
+            # Status header with color
+            status_color = (0, 0.6, 0) if overall_status == 'pass' else (0.9, 0.5, 0) if overall_status == 'warning' else (0.8, 0, 0)
+            c.setFont("Helvetica-Bold", 12)
+            c.setFillColorRGB(*status_color)
+            status_label = "PASS" if overall_status == 'pass' else "WARNING" if overall_status == 'warning' else "FAIL"
+            c.drawString(60, y, f"Compliance Status: {status_label}")
+            c.setFillColorRGB(0, 0, 0)
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(300, y, f"Score: {score}/100")
+            y -= 18
+
+            # Summary
+            summary = result.get('summary', '')
+            if summary:
+                c.setFont("Helvetica", 9)
+                c.drawString(60, y, summary[:100])
+                y -= 14
+
+            # Violations
+            if violations:
+                y -= 5
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(60, y, f"Issues Found ({len(violations)}):")
+                y -= 16
+
+                for violation in violations[:5]:  # Show up to 5 violations
+                    if y < 120:
+                        c.showPage()
+                        y = height - 50
+
+                    severity = violation.get('severity', 'low')
+                    sev_color = (0.8, 0, 0) if severity == 'high' else (0.9, 0.5, 0) if severity == 'medium' else (0.4, 0.4, 0.4)
+
+                    # Rule name with severity
+                    c.setFont("Helvetica-Bold", 9)
+                    c.drawString(70, y, f"• {violation.get('rule_name', 'Unknown')}")
+                    c.setFillColorRGB(*sev_color)
+                    c.setFont("Helvetica", 8)
+                    c.drawString(300, y, f"[{severity.upper()}]")
+                    c.setFillColorRGB(0, 0, 0)
+                    y -= 12
+
+                    # Affected plane
+                    if violation.get('affected_plane'):
+                        c.setFont("Helvetica", 8)
+                        c.setFillColorRGB(0.4, 0.4, 0.4)
+                        c.drawString(85, y, f"Roof: {violation['affected_plane']}")
+                        c.setFillColorRGB(0, 0, 0)
+                        y -= 10
+
+                    # Message
+                    c.setFont("Helvetica", 8)
+                    message = violation.get('message', '')
+                    c.drawString(85, y, f"Issue: {message[:80]}")
+                    y -= 10
+
+                    # Fix suggestion
+                    c.setFillColorRGB(0.2, 0.4, 0.8)
+                    fix = violation.get('fix_suggestion', '')
+                    c.drawString(85, y, f"Fix: {fix[:80]}")
+                    c.setFillColorRGB(0, 0, 0)
+                    y -= 14
+
+                if len(violations) > 5:
+                    c.setFont("Helvetica", 8)
+                    c.setFillColorRGB(0.4, 0.4, 0.4)
+                    c.drawString(70, y, f"+ {len(violations) - 5} more issues...")
+                    c.setFillColorRGB(0, 0, 0)
+                    y -= 12
+
+            # Checked planes info
+            checked = result.get('checked_planes', 0)
+            total = result.get('total_planes', 0)
+            c.setFont("Helvetica", 8)
+            c.setFillColorRGB(0.4, 0.4, 0.4)
+            c.drawString(60, y, f"Checked {checked} of {total} roof plane(s) with layouts")
+            c.setFillColorRGB(0, 0, 0)
+            y -= 12
+
         # Other analysis types - simple status display
-        elif kind in ["compliance", "roof_risk", "electrical"]:
+        elif kind in ["roof_risk", "electrical"]:
             c.setFont("Helvetica", 10)
             c.drawString(60, y, f"Status: {status}")
             y -= 14

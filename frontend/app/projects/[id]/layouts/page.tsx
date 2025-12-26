@@ -15,7 +15,17 @@ export default function LayoutsPage() {
   const layoutsQ = useQuery({ queryKey: ["layouts", id], queryFn: () => apiGet<Layout[]>(`/projects/${id}/layouts`) });
 
   const [name, setName] = React.useState("Layout v1");
-  const [dataJson, setDataJson] = React.useState(JSON.stringify({ arrays: [] }, null, 2));
+  const [dataJson, setDataJson] = React.useState(JSON.stringify({
+    roof_plane_id: 1,
+    panel_count: 15,
+    offset_from_edge_m: 1.0,
+    layout_config: {
+      rows: 3,
+      columns: 5,
+      panel_width_m: 1.0,
+      panel_height_m: 1.7
+    }
+  }, null, 2));
 
   const create = useMutation({
     mutationFn: () => apiPost<Layout>(`/projects/${id}/layouts`, { name, data: JSON.parse(dataJson) }),
@@ -30,7 +40,13 @@ export default function LayoutsPage() {
       <section className="mt-6 rounded border p-4">
         <h3 className="font-medium">Create layout</h3>
         <input className="mt-2 w-full rounded border p-2" value={name} onChange={(e) => setName(e.target.value)} />
-        <textarea className="mt-2 w-full rounded border p-2 font-mono text-sm" rows={10} value={dataJson} onChange={(e) => setDataJson(e.target.value)} />
+        <textarea
+          className="mt-2 w-full rounded border p-2 font-mono text-sm text-black"
+          style={{ color: '#000' }}
+          rows={12}
+          value={dataJson}
+          onChange={(e) => setDataJson(e.target.value)}
+        />
         <button className="mt-2 rounded border px-3 py-2" onClick={() => create.mutate()}>Save layout</button>
       </section>
 
@@ -40,7 +56,7 @@ export default function LayoutsPage() {
           {(layoutsQ.data || []).map((l) => (
             <li key={l.id} className="rounded border p-3">
               <div className="font-medium">{l.name} (#{l.id})</div>
-              <pre className="mt-2 overflow-auto rounded bg-gray-50 p-2">{JSON.stringify(l.data, null, 2)}</pre>
+              <pre className="mt-2 overflow-auto rounded bg-gray-50 p-2 text-black" style={{ color: '#000' }}>{JSON.stringify(l.data, null, 2)}</pre>
             </li>
           ))}
         </ul>
