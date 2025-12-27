@@ -20,6 +20,9 @@ def enqueue_analysis(record_id: int, kind: str, project_id: int) -> None:
 def enqueue_report(report_id: int, project_id: int) -> None:
     celery_app.send_task("app.worker.run_report_task", args=[report_id, project_id])
 
+def enqueue_roof_risk_with_data(record_id: int, project_id: int, image_paths: list, survey_data: dict) -> None:
+    celery_app.send_task("app.worker.run_roof_risk_with_data_task", args=[record_id, project_id, image_paths, survey_data])
+
 @celery_app.task(name="app.worker.run_analysis_task")
 def run_analysis_task(record_id: int, kind: str, project_id: int) -> None:
     db: Session = SessionLocal()
@@ -149,6 +152,30 @@ def run_report_task(report_id: int, project_id: int) -> None:
 
         rep.storage_url = f"file://{out_path}"
         rep.status = "done"
+        db.commit()
+    finally:
+        db.close()
+
+@celery_app.task(name="app.worker.run_roof_risk_with_data_task")
+def run_roof_risk_with_data_task(record_id: int, project_id: int, image_paths: list, survey_data: dict) -> None:
+    db: Session = SessionLocal()
+    try:
+        rec = db.get(AnalysisResult, record_id)
+        if not rec:
+            return
+        rec.status = "running"
+        db.commit()
+
+        # Convert file paths to URLs for the service
+        image_urls = [f"/storage/uploads/project_{project_id}/{os.path.basename(path)}" for path in image_paths]
+
+        # Run roof risk analysis with images, survey data, and physical paths for AI analysis
+        rec.result = run_roof_risk(image_urls, survey_data, image_paths)
+        rec.result["uploaded_images"] = image_urls
+        rec.result["image_count"] = len(image_urls)
+        rec.result["survey_data_used"] = survey_data
+
+        rec.status = "done"
         db.commit()
     finally:
         db.close()

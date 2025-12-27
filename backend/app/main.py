@@ -21,6 +21,11 @@ UPLOAD_DIR = Path(__file__).parent.parent / "storage" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
+# Mount storage directory (for compatibility with /storage/uploads paths)
+STORAGE_DIR = Path(__file__).parent.parent / "storage"
+STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/storage", StaticFiles(directory=str(STORAGE_DIR)), name="storage")
+
 # Mount static files for reports
 REPORTS_DIR = Path(__file__).parent.parent / "reports_out"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,6 +42,29 @@ async def delete_analysis_endpoint(analysis_id: int, db: Session = Depends(get_d
     db.delete(analysis)
     db.commit()
     return {"message": "Analysis deleted successfully"}
+
+@app.delete("/assets/{asset_id}")
+async def delete_asset_endpoint(asset_id: int, db: Session = Depends(get_db)):
+    """Delete an asset"""
+    from app.db.models import Asset
+    import os
+
+    asset = db.get(Asset, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    # Try to delete the physical file
+    if asset.storage_url:
+        file_path = asset.storage_url.replace('/storage/', 'storage/')
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass  # Continue even if file deletion fails
+
+    db.delete(asset)
+    db.commit()
+    return {"message": "Asset deleted successfully"}
 
 app.include_router(api_router)
 

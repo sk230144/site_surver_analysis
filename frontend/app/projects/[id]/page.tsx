@@ -42,6 +42,22 @@ export default function ProjectDetailPage() {
   const [viewingPdfUrl, setViewingPdfUrl] = React.useState<string | null>(null);
   const [analysisFilter, setAnalysisFilter] = React.useState<string>("all");
 
+  // Roof risk modal state
+  const [showRoofRiskModal, setShowRoofRiskModal] = React.useState(false);
+  const [roofImages, setRoofImages] = React.useState<File[]>([]);
+  const [roofSurveyData, setRoofSurveyData] = React.useState({
+    roof_age: "",
+    roof_type: "",
+    visible_cracks: false,
+    crack_severity: "minor",
+    leakage_signs: false,
+    major_damage: false,
+    weak_structures: false,
+    rust_corrosion: false,
+    obstacle_count: 0,
+    slope_angle: "",
+  });
+
   const uploadAsset = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -80,6 +96,55 @@ export default function ProjectDetailPage() {
   const deleteAnalysis = useMutation({
     mutationFn: (analysisId: number) => fetch(`http://localhost:8000/analysis/${analysisId}`, { method: "DELETE" }).then(res => res.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["analysis", id] }),
+  });
+
+  const deleteAsset = useMutation({
+    mutationFn: (assetId: number) => fetch(`http://localhost:8000/assets/${assetId}`, { method: "DELETE" }).then(res => res.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["assets", id] }),
+  });
+
+  const runRoofRiskWithData = useMutation({
+    mutationFn: async () => {
+      // Show notification that analysis is starting
+      alert('Roof risk analysis started. This may take 30-60 seconds. Please wait...');
+
+      const formData = new FormData();
+
+      // Add roof images
+      roofImages.forEach((file, index) => {
+        formData.append(`images`, file);
+      });
+
+      // Add survey data as JSON
+      formData.append('survey_data', JSON.stringify(roofSurveyData));
+
+      const res = await fetch(`http://localhost:8000/projects/${id}/analysis/roof_risk/run_with_data`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Roof risk analysis failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["analysis", id] });
+      qc.invalidateQueries({ queryKey: ["assets", id] });
+      setShowRoofRiskModal(false);
+      setRoofImages([]);
+      setRoofSurveyData({
+        roof_age: "",
+        roof_type: "",
+        visible_cracks: false,
+        crack_severity: "minor",
+        leakage_signs: false,
+        major_damage: false,
+        weak_structures: false,
+        rust_corrosion: false,
+        obstacle_count: 0,
+        slope_angle: "",
+      });
+      alert('Roof risk analysis completed! Check the results below.');
+    },
   });
 
   const getBadgeClass = (assetKind: string) => {
@@ -432,6 +497,99 @@ export default function ProjectDetailPage() {
     );
   };
 
+  const renderRoofRiskResult = (result: any) => {
+    if (!result || Object.keys(result).length === 0) return null;
+
+    const status = result.overall_status || 'unknown';
+    const riskScore = result.risk_score || 0;
+    const reasons = result.reasons || [];
+    const recommendation = result.recommendation || '';
+
+    // Status colors and icons
+    const statusConfig: Record<string, any> = {
+      safe: { color: '#10b981', bg: '#10b98110', icon: '✅', label: 'SAFE' },
+      needs_inspection: { color: '#f59e0b', bg: '#f59e0b10', icon: '⚠️', label: 'NEEDS INSPECTION' },
+      high_risk: { color: '#ef4444', bg: '#ef444410', icon: '❌', label: 'HIGH RISK' },
+      unknown: { color: '#6b7280', bg: '#6b728010', icon: '❓', label: 'UNKNOWN' }
+    };
+
+    const config = statusConfig[status] || statusConfig.unknown;
+
+    return (
+      <div style={{
+        marginTop: '0.75rem',
+        padding: '1rem',
+        background: 'var(--bg-secondary)',
+        borderRadius: '0.5rem',
+        border: `2px solid ${config.color}20`
+      }}>
+        {/* Status Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '0.75rem',
+          paddingBottom: '0.75rem',
+          borderBottom: '1px solid var(--border-color)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>{config.icon}</span>
+            <span style={{
+              fontWeight: 700,
+              fontSize: '1rem',
+              color: config.color
+            }}>
+              {config.label}
+            </span>
+          </div>
+          <div style={{
+            padding: '0.25rem 0.75rem',
+            borderRadius: '0.375rem',
+            background: config.bg,
+            color: config.color,
+            fontWeight: 600,
+            fontSize: '0.9rem'
+          }}>
+            Risk Score: {riskScore}/100
+          </div>
+        </div>
+
+        {/* Reasons */}
+        {reasons.length > 0 && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+              Reasons:
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'grid', gap: '0.25rem' }}>
+              {reasons.map((reason: string, idx: number) => (
+                <li key={idx} style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Recommendation */}
+        {recommendation && (
+          <div style={{
+            padding: '0.75rem',
+            background: config.bg,
+            borderRadius: '0.375rem',
+            borderLeft: `3px solid ${config.color}`
+          }}>
+            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem', color: config.color }}>
+              Recommendation:
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+              {recommendation}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Filter and sort analysis results
   const filteredAnalyses = React.useMemo(() => {
     let filtered = analysisQ.data || [];
@@ -515,7 +673,14 @@ export default function ProjectDetailPage() {
             <div className="empty-state">No assets yet. Add your first asset above!</div>
           )}
 
-          <ul className="asset-list">
+          <ul
+            className="asset-list"
+            style={{
+              maxHeight: '500px',
+              overflowY: 'auto',
+              padding: '0.5rem'
+            }}
+          >
             {(assetsQ.data || []).map((a) => (
               <li key={a.id} className="asset-item">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -569,6 +734,25 @@ export default function ProjectDetailPage() {
                       )}
                     </div>
                   </div>
+                  <button
+                    className="btn btn-small"
+                    style={{
+                      background: 'var(--error)',
+                      borderColor: 'var(--error)',
+                      padding: '0.5rem 0.75rem',
+                      fontSize: '0.85rem',
+                      minWidth: 'auto'
+                    }}
+                    onClick={() => {
+                      if (confirm(`Delete ${a.filename}?`)) {
+                        deleteAsset.mutate(a.id);
+                      }
+                    }}
+                    disabled={deleteAsset.isPending}
+                    title="Delete asset"
+                  >
+                    🗑️ Delete
+                  </button>
                 </div>
               </li>
             ))}
@@ -584,7 +768,7 @@ export default function ProjectDetailPage() {
             <button className="btn-success btn" onClick={() => runAnalysis.mutate("compliance")} disabled={runAnalysis.isPending}>
               ✓ Run Compliance Check
             </button>
-            <button className="btn-warning btn" onClick={() => runAnalysis.mutate("roof_risk")} disabled={runAnalysis.isPending}>
+            <button className="btn-warning btn" onClick={() => setShowRoofRiskModal(true)}>
               ⚠️ Run Roof Risk Analysis
             </button>
             <button className="btn-purple btn" onClick={() => runAnalysis.mutate("electrical")} disabled={runAnalysis.isPending}>
@@ -675,7 +859,9 @@ export default function ProjectDetailPage() {
 
                     {analysis.status === 'done' && analysis.kind === 'compliance' && renderComplianceResult(analysis.result)}
 
-                    {analysis.status === 'done' && analysis.kind !== 'shading' && analysis.kind !== 'compliance' && analysis.result?.summary && (
+                    {analysis.status === 'done' && analysis.kind === 'roof_risk' && renderRoofRiskResult(analysis.result)}
+
+                    {analysis.status === 'done' && analysis.kind !== 'shading' && analysis.kind !== 'compliance' && analysis.kind !== 'roof_risk' && analysis.result?.summary && (
                       <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                         {analysis.result.summary}
                       </div>
@@ -751,6 +937,272 @@ export default function ProjectDetailPage() {
           </div>
         </section>
       </div>
+
+      {/* Roof Risk Analysis Modal */}
+      {showRoofRiskModal && (
+        <div className="modal-overlay" onClick={() => setShowRoofRiskModal(false)}>
+          <div className="roof-risk-modal" onClick={(e) => e.stopPropagation()} style={{
+            background: 'var(--bg-primary)',
+            borderRadius: '0.75rem',
+            padding: '1.5rem',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>⚠️ Roof Risk Analysis</h3>
+              <button
+                onClick={() => setShowRoofRiskModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  padding: '0',
+                  width: '2rem',
+                  height: '2rem'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+              Please upload roof images and optionally provide survey information for a comprehensive risk assessment.
+            </p>
+
+            {/* Image Upload Section */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.95rem' }}>
+                📸 Roof Images (Required)
+              </label>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setRoofImages(files);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.9rem',
+                  background: 'var(--bg-secondary)',
+                  color: '#fff'
+                }}
+              />
+              {roofImages.length > 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--accent-green)' }}>
+                  ✓ {roofImages.length} image{roofImages.length !== 1 ? 's' : ''} selected
+                </div>
+              )}
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginBottom: '1rem' }}>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+                📋 Optional Survey Information
+              </h4>
+
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {/* Roof Age */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.25rem' }}>
+                    Roof Age
+                  </label>
+                  <select
+                    value={roofSurveyData.roof_age}
+                    onChange={(e) => setRoofSurveyData({ ...roofSurveyData, roof_age: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.9rem',
+                      background: 'var(--bg-secondary)',
+                      color: '#fff'
+                    }}
+                  >
+                    <option value="">Select age...</option>
+                    <option value="0-5 years">0-5 years</option>
+                    <option value="5-10 years">5-10 years</option>
+                    <option value="10+ years">10+ years</option>
+                    <option value="20+ years">20+ years</option>
+                  </select>
+                </div>
+
+                {/* Roof Type */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.25rem' }}>
+                    Roof Type
+                  </label>
+                  <select
+                    value={roofSurveyData.roof_type}
+                    onChange={(e) => setRoofSurveyData({ ...roofSurveyData, roof_type: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.9rem',
+                      background: 'var(--bg-secondary)',
+                      color: '#fff'
+                    }}
+                  >
+                    <option value="">Select type...</option>
+                    <option value="concrete">Concrete</option>
+                    <option value="metal">Metal/Tin</option>
+                    <option value="sheet">Sheet</option>
+                    <option value="asbestos">Asbestos</option>
+                    <option value="tile">Tile</option>
+                  </select>
+                </div>
+
+                {/* Slope Angle */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.25rem' }}>
+                    Slope Angle (degrees)
+                  </label>
+                  <input
+                    type="text"
+                    value={roofSurveyData.slope_angle}
+                    onChange={(e) => setRoofSurveyData({ ...roofSurveyData, slope_angle: e.target.value })}
+                    placeholder="e.g., 15"
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.9rem',
+                      background: 'var(--bg-secondary)',
+                      color: '#fff'
+                    }}
+                  />
+                </div>
+
+                {/* Checkboxes */}
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={roofSurveyData.visible_cracks}
+                      onChange={(e) => setRoofSurveyData({ ...roofSurveyData, visible_cracks: e.target.checked })}
+                    />
+                    Visible cracks or damage
+                  </label>
+
+                  {roofSurveyData.visible_cracks && (
+                    <div style={{ marginLeft: '1.5rem' }}>
+                      <select
+                        value={roofSurveyData.crack_severity}
+                        onChange={(e) => setRoofSurveyData({ ...roofSurveyData, crack_severity: e.target.value })}
+                        style={{
+                          padding: '0.4rem',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '0.375rem',
+                          fontSize: '0.85rem',
+                          background: 'var(--bg-secondary)',
+                          color: '#fff'
+                        }}
+                      >
+                        <option value="minor">Minor cracks</option>
+                        <option value="major">Major cracks</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={roofSurveyData.leakage_signs}
+                      onChange={(e) => setRoofSurveyData({ ...roofSurveyData, leakage_signs: e.target.checked })}
+                    />
+                    Signs of water leakage
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={roofSurveyData.major_damage}
+                      onChange={(e) => setRoofSurveyData({ ...roofSurveyData, major_damage: e.target.checked })}
+                    />
+                    Major structural damage
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={roofSurveyData.weak_structures}
+                      onChange={(e) => setRoofSurveyData({ ...roofSurveyData, weak_structures: e.target.checked })}
+                    />
+                    Weak or unstable structures
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={roofSurveyData.rust_corrosion}
+                      onChange={(e) => setRoofSurveyData({ ...roofSurveyData, rust_corrosion: e.target.checked })}
+                    />
+                    Rust or corrosion (metal roofs)
+                  </label>
+                </div>
+
+                {/* Obstacle Count */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.25rem' }}>
+                    Number of Roof Obstacles (vents, chimneys, etc.)
+                  </label>
+                  <input
+                    type="number"
+                    value={roofSurveyData.obstacle_count}
+                    onChange={(e) => setRoofSurveyData({ ...roofSurveyData, obstacle_count: parseInt(e.target.value) || 0 })}
+                    min="0"
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.9rem',
+                      background: 'var(--bg-secondary)',
+                      color: '#fff'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button
+                className="btn btn-warning"
+                onClick={() => runRoofRiskWithData.mutate()}
+                disabled={roofImages.length === 0 || runRoofRiskWithData.isPending}
+                style={{ flex: 1 }}
+              >
+                {runRoofRiskWithData.isPending ? '⏳ Analyzing...' : '⚠️ Run Analysis'}
+              </button>
+              <button
+                className="btn"
+                onClick={() => setShowRoofRiskModal(false)}
+                style={{
+                  flex: 1,
+                  background: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-color)'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PDF Viewer Modal */}
       {viewingPdfUrl && (

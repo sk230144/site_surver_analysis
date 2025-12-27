@@ -39,7 +39,15 @@
       "Bash(..\\\\.venv\\\\Scripts\\\\celery -A app.worker worker --loglevel=info --pool=solo)",
       "Bash(../.venv/Scripts/python:*)",
       "Bash(timeout 3 bash:*)",
-      "Bash(timeout 2 bash:*)"
+      "Bash(timeout 2 bash:*)",
+      "Bash(PGPASSWORD=solar123 .venvScriptspython:*)",
+      "Bash(PGPASSWORD=solar123 ../.venv/Scripts/python:*)",
+      "Bash(...venvScriptscelery -A app.worker worker --loglevel=info --pool=solo)",
+      "Bash(.venv/Scripts/celery.exe:*)",
+      "Bash(backend/.venv/Scripts/pip list:*)",
+      "Bash(backend/.venv/Scripts/pip install:*)",
+      "Bash(timeout 20 .venv/Scripts/python:*)",
+      "Bash(timeout 30 .venv/Scripts/python:*)"
     ]
   }
 }
