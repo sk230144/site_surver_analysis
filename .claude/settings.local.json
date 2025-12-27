@@ -47,7 +47,9 @@
       "Bash(backend/.venv/Scripts/pip list:*)",
       "Bash(backend/.venv/Scripts/pip install:*)",
       "Bash(timeout 20 .venv/Scripts/python:*)",
-      "Bash(timeout 30 .venv/Scripts/python:*)"
+      "Bash(timeout 30 .venv/Scripts/python:*)",
+      "Bash(wc:*)",
+      "Bash(PYTHONPATH=. timeout 5 bash -c \".venv/Scripts/celery -A app.worker worker --loglevel=info --pool=solo 2>&1 | head -30\")"
     ]
   }
 }

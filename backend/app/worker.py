@@ -8,7 +8,7 @@ from app.services.shading import run_shading_analysis
 from app.services.shading_advanced import run_advanced_shading_analysis
 from app.services.compliance import run_compliance_analysis
 from app.services.roof_risk import run_roof_risk
-from app.services.electrical import run_electrical_feasibility
+from app.services.electrical import run_electrical_analysis
 from app.services.reports import build_minimal_report
 import os
 
@@ -22,6 +22,9 @@ def enqueue_report(report_id: int, project_id: int) -> None:
 
 def enqueue_roof_risk_with_data(record_id: int, project_id: int, image_paths: list, survey_data: dict) -> None:
     celery_app.send_task("app.worker.run_roof_risk_with_data_task", args=[record_id, project_id, image_paths, survey_data])
+
+def enqueue_electrical_with_data(record_id: int, project_id: int, image_paths: list, electrical_data: dict) -> None:
+    celery_app.send_task("app.worker.run_electrical_with_data_task", args=[record_id, project_id, image_paths, electrical_data])
 
 @celery_app.task(name="app.worker.run_analysis_task")
 def run_analysis_task(record_id: int, kind: str, project_id: int) -> None:
@@ -114,8 +117,8 @@ def run_analysis_task(record_id: int, kind: str, project_id: int) -> None:
             imgs = db.execute(select(Asset).where(Asset.project_id == project_id, Asset.kind == "photo")).scalars().all()
             rec.result = run_roof_risk([a.storage_url for a in imgs])
         elif kind == "electrical":
-            imgs = db.execute(select(Asset).where(Asset.project_id == project_id, Asset.kind == "photo")).scalars().all()
-            rec.result = run_electrical_feasibility([a.storage_url for a in imgs])
+            # Use new endpoint: /projects/{id}/analysis/electrical/run_with_data
+            rec.result = {"summary": "Use the new electrical analysis endpoint with panel data"}
         else:
             rec.result = {"summary": f"Unknown analysis kind: {kind}"}
 
@@ -174,6 +177,30 @@ def run_roof_risk_with_data_task(record_id: int, project_id: int, image_paths: l
         rec.result["uploaded_images"] = image_urls
         rec.result["image_count"] = len(image_urls)
         rec.result["survey_data_used"] = survey_data
+
+        rec.status = "done"
+        db.commit()
+    finally:
+        db.close()
+
+@celery_app.task(name="app.worker.run_electrical_with_data_task")
+def run_electrical_with_data_task(record_id: int, project_id: int, image_paths: list, electrical_data: dict) -> None:
+    db: Session = SessionLocal()
+    try:
+        rec = db.get(AnalysisResult, record_id)
+        if not rec:
+            return
+        rec.status = "running"
+        db.commit()
+
+        # Convert file paths to URLs for storage
+        image_urls = [f"/storage/uploads/project_{project_id}/{os.path.basename(path)}" for path in image_paths]
+
+        # Run electrical analysis with electrical data and physical paths
+        rec.result = run_electrical_analysis(electrical_data, image_paths if image_paths else None)
+        rec.result["uploaded_images"] = image_urls
+        rec.result["image_count"] = len(image_urls)
+        rec.result["electrical_data_used"] = electrical_data
 
         rec.status = "done"
         db.commit()

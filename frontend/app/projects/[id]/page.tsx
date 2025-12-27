@@ -58,6 +58,20 @@ export default function ProjectDetailPage() {
     slope_angle: "",
   });
 
+  // Electrical analysis modal state
+  const [showElectricalModal, setShowElectricalModal] = React.useState(false);
+  const [panelImages, setPanelImages] = React.useState<File[]>([]);
+  const [electricalData, setElectricalData] = React.useState({
+    system_size_kw: "",
+    main_panel_rating_a: "",
+    main_breaker_rating_a: "",
+    phase_type: "single",
+    panel_age: "unknown",
+    voltage: "230",
+    panel_condition: "good",
+    wiring_condition: "good",
+  });
+
   const uploadAsset = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -144,6 +158,47 @@ export default function ProjectDetailPage() {
         slope_angle: "",
       });
       alert('Roof risk analysis completed! Check the results below.');
+    },
+  });
+
+  const runElectricalWithData = useMutation({
+    mutationFn: async () => {
+      alert('Electrical analysis started. This may take 20-30 seconds. Please wait...');
+
+      const formData = new FormData();
+
+      // Add panel images
+      panelImages.forEach((file) => {
+        formData.append(`images`, file);
+      });
+
+      // Add electrical data as JSON
+      formData.append('electrical_data', JSON.stringify(electricalData));
+
+      const res = await fetch(`http://localhost:8000/projects/${id}/analysis/electrical/run_with_data`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Electrical analysis failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["analysis", id] });
+      qc.invalidateQueries({ queryKey: ["assets", id] });
+      setShowElectricalModal(false);
+      setPanelImages([]);
+      setElectricalData({
+        system_size_kw: "",
+        main_panel_rating_a: "",
+        main_breaker_rating_a: "",
+        phase_type: "single",
+        panel_age: "unknown",
+        voltage: "230",
+        panel_condition: "good",
+        wiring_condition: "good",
+      });
+      alert('Electrical analysis completed! Check the results below.');
     },
   });
 
@@ -590,6 +645,275 @@ export default function ProjectDetailPage() {
     );
   };
 
+  const renderElectricalResult = (result: any) => {
+    if (!result || Object.keys(result).length === 0) return null;
+
+    const status = result.status || 'unknown';
+    const score = result.score || 0;
+    const summary = result.summary || '';
+    const checks = result.checks || [];
+    const recommendations = result.recommendations || [];
+    const calculations = result.calculations || {};
+    const electricalDataUsed = result.electrical_data_used || {};
+
+    // Status colors and icons
+    const statusConfig: Record<string, any> = {
+      ok: { color: '#10b981', bg: '#10b98110', icon: '✅', label: 'APPROVED' },
+      warning: { color: '#f59e0b', bg: '#f59e0b10', icon: '⚠️', label: 'WARNING' },
+      fail: { color: '#ef4444', bg: '#ef444410', icon: '❌', label: 'FAILED' },
+      unknown: { color: '#6b7280', bg: '#6b728010', icon: '❓', label: 'UNKNOWN' }
+    };
+
+    const config = statusConfig[status] || statusConfig.unknown;
+
+    // Map panel age values to display text
+    const panelAgeMap: Record<string, string> = {
+      'under_10_years': '< 10 years',
+      '10_20_years': '10-20 years',
+      '20_30_years': '20-30 years',
+      'over_30_years': '30+ years',
+      'unknown': 'Unknown'
+    };
+
+    // Extract quick summary from status
+    let quickSummary = '';
+    let actionRequired = '';
+
+    if (status === 'ok') {
+      quickSummary = 'Safe to install solar on current electrical system';
+      actionRequired = 'Proceed with installation';
+    } else if (status === 'warning') {
+      quickSummary = 'Electrical system has concerns that need review';
+      actionRequired = 'Review safety checks before proceeding';
+    } else {
+      quickSummary = 'Unsafe to install solar on current electrical system';
+      actionRequired = 'Electrical panel upgrade needed';
+    }
+
+    return (
+      <div style={{
+        marginTop: '0.75rem',
+        padding: '1rem',
+        background: 'var(--bg-secondary)',
+        borderRadius: '0.5rem',
+        border: `2px solid ${config.color}20`
+      }}>
+        {/* Quick Summary at Top */}
+        <div style={{
+          padding: '0.75rem',
+          background: config.bg,
+          borderRadius: '0.375rem',
+          marginBottom: '1rem',
+          borderLeft: `4px solid ${config.color}`
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '0.5rem'
+          }}>
+            <span style={{ fontSize: '1.1rem' }}>{config.icon}</span>
+            <span style={{
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              color: config.color
+            }}>
+              Electrical: {config.label}
+            </span>
+          </div>
+          <div style={{
+            fontSize: '0.9rem',
+            color: 'var(--text-primary)',
+            marginBottom: '0.25rem',
+            fontWeight: 500
+          }}>
+            {quickSummary}
+          </div>
+          <div style={{
+            fontSize: '0.85rem',
+            color: 'var(--text-secondary)',
+            fontWeight: 600
+          }}>
+            Action required: {actionRequired}
+          </div>
+        </div>
+
+        {/* Status Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '0.75rem',
+          paddingBottom: '0.75rem',
+          borderBottom: '1px solid var(--border-color)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>{config.icon}</span>
+            <span style={{
+              fontWeight: 700,
+              fontSize: '1rem',
+              color: config.color
+            }}>
+              {config.label}
+            </span>
+          </div>
+          <div style={{
+            padding: '0.25rem 0.75rem',
+            borderRadius: '0.375rem',
+            background: config.bg,
+            color: config.color,
+            fontWeight: 600,
+            fontSize: '0.9rem'
+          }}>
+            Safety Score: {score}/100
+          </div>
+        </div>
+
+        {/* Summary */}
+        {summary && (
+          <div style={{
+            padding: '0.75rem',
+            background: config.bg,
+            borderRadius: '0.375rem',
+            marginBottom: '0.75rem',
+            fontSize: '0.85rem',
+            color: 'var(--text-primary)',
+            lineHeight: '1.5'
+          }}>
+            {summary}
+          </div>
+        )}
+
+        {/* Input Data Section */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+            Analysis Input Data:
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '0.5rem',
+            fontSize: '0.85rem'
+          }}>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Planned Solar System Size (kW):</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {electricalDataUsed.system_size_kw || calculations.system_size_kw || 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Main Panel Rating (A):</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {electricalDataUsed.main_panel_rating_a || calculations.main_panel_rating_a || 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Main Breaker Rating (A):</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {electricalDataUsed.main_breaker_rating_a || calculations.main_breaker_a || 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Voltage (V):</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {electricalDataUsed.voltage || calculations.voltage || 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Phase Type:</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {(electricalDataUsed.phase_type || calculations.phase_type || 'N/A').replace('_', ' ')}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Panel Age:</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {panelAgeMap[electricalDataUsed.panel_age] || electricalDataUsed.panel_age || 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Panel Condition:</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {(electricalDataUsed.panel_condition || 'N/A').charAt(0).toUpperCase() + (electricalDataUsed.panel_condition || '').slice(1)}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Wiring Condition:</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                {(electricalDataUsed.wiring_condition || 'N/A').charAt(0).toUpperCase() + (electricalDataUsed.wiring_condition || '').slice(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Checks */}
+        {checks.length > 0 && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+              Safety Checks:
+            </div>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {checks.map((check: any, idx: number) => {
+                const checkStatus = check.status || 'unknown';
+                const checkIcon = checkStatus === 'pass' ? '✅' : checkStatus === 'warning' ? '⚠️' : '❌';
+                const checkColor = checkStatus === 'pass' ? '#10b981' : checkStatus === 'warning' ? '#f59e0b' : '#ef4444';
+
+                return (
+                  <div key={idx} style={{
+                    padding: '0.5rem',
+                    background: 'var(--bg-primary)',
+                    borderRadius: '0.375rem',
+                    borderLeft: `3px solid ${checkColor}`
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <span>{checkIcon}</span>
+                      <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        {check.name}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', paddingLeft: '1.75rem' }}>
+                      {check.message}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        {recommendations.length > 0 && (
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+              Recommendations:
+            </div>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {recommendations.slice(0, 2).map((rec: any, idx: number) => {
+                const priority = rec.priority || 'low';
+                const priorityColor = priority === 'critical' ? '#ef4444' : priority === 'high' ? '#f59e0b' : priority === 'medium' ? '#3b82f6' : '#10b981';
+
+                return (
+                  <div key={idx} style={{
+                    padding: '0.75rem',
+                    background: `${priorityColor}10`,
+                    borderRadius: '0.375rem',
+                    borderLeft: `3px solid ${priorityColor}`
+                  }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{rec.action}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{rec.reason}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{rec.next_step}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Filter and sort analysis results
   const filteredAnalyses = React.useMemo(() => {
     let filtered = analysisQ.data || [];
@@ -771,7 +1095,7 @@ export default function ProjectDetailPage() {
             <button className="btn-warning btn" onClick={() => setShowRoofRiskModal(true)}>
               ⚠️ Run Roof Risk Analysis
             </button>
-            <button className="btn-purple btn" onClick={() => runAnalysis.mutate("electrical")} disabled={runAnalysis.isPending}>
+            <button className="btn-purple btn" onClick={() => setShowElectricalModal(true)}>
               ⚡ Run Electrical Analysis
             </button>
           </div>
@@ -861,7 +1185,9 @@ export default function ProjectDetailPage() {
 
                     {analysis.status === 'done' && analysis.kind === 'roof_risk' && renderRoofRiskResult(analysis.result)}
 
-                    {analysis.status === 'done' && analysis.kind !== 'shading' && analysis.kind !== 'compliance' && analysis.kind !== 'roof_risk' && analysis.result?.summary && (
+                    {analysis.status === 'done' && analysis.kind === 'electrical' && renderElectricalResult(analysis.result)}
+
+                    {analysis.status === 'done' && analysis.kind !== 'shading' && analysis.kind !== 'compliance' && analysis.kind !== 'roof_risk' && analysis.kind !== 'electrical' && analysis.result?.summary && (
                       <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                         {analysis.result.summary}
                       </div>
@@ -1219,6 +1545,187 @@ export default function ProjectDetailPage() {
               className="pdf-viewer-iframe"
               title="PDF Report"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Electrical Analysis Modal */}
+      {showElectricalModal && (
+        <div className="modal-overlay" onClick={() => setShowElectricalModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 style={{ color: '#fff', marginBottom: '1.5rem' }}>⚡ Electrical Panel Analysis</h2>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff', fontWeight: '600' }}>
+                Panel Photos (Optional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setPanelImages(Array.from(e.target.files));
+                  }
+                }}
+                style={{ color: '#fff' }}
+              />
+              {panelImages.length > 0 && (
+                <p style={{ color: '#4ade80', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                  ✓ {panelImages.length} image(s) selected
+                </p>
+              )}
+            </div>
+
+            <div className="divider" style={{ margin: '1.5rem 0' }}></div>
+
+            <h3 style={{ color: '#fff', marginBottom: '1rem', fontSize: '1.1rem' }}>System & Panel Information</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Planned Solar System Size (kW) *
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="e.g. 9.6"
+                  value={electricalData.system_size_kw}
+                  onChange={(e) => setElectricalData({ ...electricalData, system_size_kw: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Main Panel Rating (A) *
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 100"
+                  value={electricalData.main_panel_rating_a}
+                  onChange={(e) => setElectricalData({ ...electricalData, main_panel_rating_a: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                />
+                <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: '0.3rem', fontStyle: 'italic' }}>
+                  Look for 63A / 80A / 100A label on the main switch
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Main Breaker Rating (A)
+                </label>
+                <input
+                  type="number"
+                  placeholder="Leave empty = same as panel"
+                  value={electricalData.main_breaker_rating_a}
+                  onChange={(e) => setElectricalData({ ...electricalData, main_breaker_rating_a: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                />
+                <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: '0.3rem', fontStyle: 'italic' }}>
+                  If empty, assumes same as Main Panel Rating
+                </p>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Voltage (V)
+                </label>
+                <select
+                  value={electricalData.voltage}
+                  onChange={(e) => setElectricalData({ ...electricalData, voltage: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                >
+                  <option value="230">230V (India/EU)</option>
+                  <option value="240">240V (US/Australia)</option>
+                  <option value="220">220V (Other)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Phase Type
+                </label>
+                <select
+                  value={electricalData.phase_type}
+                  onChange={(e) => setElectricalData({ ...electricalData, phase_type: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                >
+                  <option value="single">Single Phase</option>
+                  <option value="three">Three Phase</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Panel Age/Condition
+                </label>
+                <select
+                  value={electricalData.panel_age}
+                  onChange={(e) => setElectricalData({ ...electricalData, panel_age: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                >
+                  <option value="new">New (0-5 years)</option>
+                  <option value="good">Good (5-15 years)</option>
+                  <option value="old">Old (15+ years)</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Panel Condition
+                </label>
+                <select
+                  value={electricalData.panel_condition}
+                  onChange={(e) => setElectricalData({ ...electricalData, panel_condition: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                >
+                  <option value="good">Good - No visible damage</option>
+                  <option value="fair">Fair - Minor wear</option>
+                  <option value="poor">Poor - Needs attention</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                  Wiring Condition
+                </label>
+                <select
+                  value={electricalData.wiring_condition}
+                  onChange={(e) => setElectricalData({ ...electricalData, wiring_condition: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', background: '#374151', border: '1px solid #4b5563', borderRadius: '4px', color: '#fff' }}
+                >
+                  <option value="good">Good - Modern wiring</option>
+                  <option value="fair">Fair - Some age visible</option>
+                  <option value="poor">Poor - Old/unsafe wiring</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                className="btn"
+                onClick={() => setShowElectricalModal(false)}
+                style={{ background: '#6b7280', borderColor: '#6b7280' }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-purple"
+                onClick={() => runElectricalWithData.mutate()}
+                disabled={runElectricalWithData.isPending || !electricalData.system_size_kw || !electricalData.main_panel_rating_a}
+              >
+                {runElectricalWithData.isPending ? 'Running...' : '⚡ Run Analysis'}
+              </button>
+            </div>
           </div>
         </div>
       )}

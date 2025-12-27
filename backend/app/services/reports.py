@@ -637,19 +637,244 @@ def build_minimal_report(project, assets, analyses) -> bytes:
 
                     y -= 8  # Space between images
 
-        # Electrical analysis - simple display
+        # Electrical analysis - comprehensive display
         elif kind == "electrical":
-            c.setFont("Helvetica", 10)
-            c.drawString(60, y, f"Status: {status}")
-            y -= 14
-
-            # Show summary if available
+            # Get electrical data
+            electrical_status = result.get('status', 'unknown')
+            score = result.get('score', 0)
             summary = result.get('summary', '')
+            checks = result.get('checks', [])
+            recommendations = result.get('recommendations', [])
+            calculations = result.get('calculations', {})
+
+            # Status badge with color
+            if electrical_status == "ok":
+                status_color = (0.0, 0.6, 0.0)  # Green
+                status_text = "✓ APPROVED"
+            elif electrical_status == "warning":
+                status_color = (0.9, 0.6, 0.0)  # Orange
+                status_text = "⚠ WARNING"
+            else:  # fail
+                status_color = (0.8, 0.0, 0.0)  # Red
+                status_text = "✗ FAILED"
+
+            c.setFont("Helvetica-Bold", 11)
+            c.setFillColorRGB(*status_color)
+            c.drawString(60, y, status_text)
+            c.setFillColorRGB(0, 0, 0)
+
+            # Score
+            c.setFont("Helvetica", 10)
+            c.drawString(200, y, f"Safety Score: {score}/100")
+            y -= 16
+
+            # Summary
             if summary:
-                c.setFillColorRGB(0.3, 0.3, 0.3)
-                c.drawString(60, y, summary[:100])  # Truncate
+                c.setFont("Helvetica", 9)
+                c.setFillColorRGB(0.2, 0.2, 0.2)
+                c.drawString(60, y, summary)
                 c.setFillColorRGB(0, 0, 0)
+                y -= 16
+
+            # Key Calculations
+            if calculations:
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(60, y, "Capacity Analysis (NEC 120% Rule):")
                 y -= 14
+
+                c.setFont("Helvetica", 9)
+                calc_items = [
+                    f"Solar System: {calculations.get('system_size_kw', 'N/A')} kW → {calculations.get('solar_breaker_a', 'N/A')}A breaker required",
+                    f"Main Panel Rating: {calculations.get('main_panel_rating_a', 'N/A')}A",
+                    f"Main Breaker: {calculations.get('main_breaker_a', 'N/A')}A",
+                    f"120% Backfeed Limit: {calculations.get('backfeed_limit_a', 'N/A')}A",
+                    f"Total Required: {calculations.get('required_capacity_a', 'N/A')}A",
+                    f"Margin: {calculations.get('capacity_margin_a', 'N/A')}A ({calculations.get('capacity_utilization_percent', 'N/A')}% utilized)"
+                ]
+
+                for item in calc_items:
+                    if y < 50:
+                        c.showPage()
+                        y = height - 50
+                    c.drawString(65, y, f"• {item}")
+                    y -= 12
+
+                y -= 6
+
+            # Safety Checks
+            if checks:
+                if y < 100:
+                    c.showPage()
+                    y = height - 50
+
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(60, y, "Safety Checks:")
+                y -= 14
+
+                for check in checks:
+                    if y < 60:
+                        c.showPage()
+                        y = height - 50
+
+                    check_status = check.get('status', 'unknown')
+                    check_name = check.get('name', 'Unknown Check')
+                    check_message = check.get('message', '')
+
+                    # Status icon
+                    if check_status == "pass":
+                        icon = "✓"
+                        icon_color = (0.0, 0.6, 0.0)
+                    elif check_status == "warning":
+                        icon = "⚠"
+                        icon_color = (0.9, 0.6, 0.0)
+                    else:  # fail
+                        icon = "✗"
+                        icon_color = (0.8, 0.0, 0.0)
+
+                    c.setFont("Helvetica-Bold", 9)
+                    c.setFillColorRGB(*icon_color)
+                    c.drawString(65, y, icon)
+                    c.setFillColorRGB(0, 0, 0)
+
+                    c.setFont("Helvetica-Bold", 9)
+                    c.drawString(80, y, check_name)
+                    y -= 12
+
+                    # Check message - word wrap
+                    c.setFont("Helvetica", 8)
+                    c.setFillColorRGB(0.3, 0.3, 0.3)
+                    words = check_message.split()
+                    line = ""
+                    for word in words:
+                        test_line = line + word + " "
+                        if len(test_line) > 70:
+                            c.drawString(85, y, line.strip())
+                            y -= 10
+                            line = word + " "
+                        else:
+                            line = test_line
+                    if line:
+                        c.drawString(85, y, line.strip())
+                        y -= 10
+
+                    c.setFillColorRGB(0, 0, 0)
+                    y -= 6
+
+                y -= 4
+
+            # Recommendations
+            if recommendations:
+                if y < 120:
+                    c.showPage()
+                    y = height - 50
+
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(60, y, "Recommendations:")
+                y -= 14
+
+                for i, rec in enumerate(recommendations[:3], 1):  # Show top 3 recommendations
+                    if y < 80:
+                        c.showPage()
+                        y = height - 50
+
+                    priority = rec.get('priority', 'low')
+                    action = rec.get('action', '')
+                    reason = rec.get('reason', '')
+                    next_step = rec.get('next_step', '')
+
+                    # Priority color
+                    if priority == "critical":
+                        priority_color = (0.8, 0.0, 0.0)
+                    elif priority == "high":
+                        priority_color = (0.9, 0.4, 0.0)
+                    elif priority == "medium":
+                        priority_color = (0.9, 0.6, 0.0)
+                    else:
+                        priority_color = (0.0, 0.5, 0.0)
+
+                    c.setFont("Helvetica-Bold", 9)
+                    c.setFillColorRGB(*priority_color)
+                    c.drawString(65, y, f"{i}.")
+                    c.setFillColorRGB(0, 0, 0)
+                    y -= 12
+
+                    # Action/Reason/Next step format
+                    rec_lines = [action, reason, next_step]
+                    for line in rec_lines:
+                        if not line:
+                            continue
+
+                        if line.startswith("Action:"):
+                            c.setFont("Helvetica-Bold", 9)
+                            c.setFillColorRGB(*priority_color)
+                            c.drawString(75, y, "Action:")
+                            c.setFillColorRGB(0, 0, 0)
+                            c.setFont("Helvetica", 9)
+                            text = line.replace("Action:", "").strip()
+                        elif line.startswith("Reason:"):
+                            c.setFont("Helvetica-Bold", 8)
+                            c.drawString(75, y, "Reason:")
+                            c.setFont("Helvetica", 8)
+                            text = line.replace("Reason:", "").strip()
+                        elif line.startswith("Next step:"):
+                            c.setFont("Helvetica-Bold", 8)
+                            c.drawString(75, y, "Next:")
+                            c.setFont("Helvetica", 8)
+                            text = line.replace("Next step:", "").strip()
+                        else:
+                            text = line
+
+                        # Word wrap
+                        c.setFillColorRGB(0.2, 0.2, 0.2)
+                        words = text.split()
+                        wrapped_line = ""
+                        for word in words:
+                            test_line = wrapped_line + word + " "
+                            if len(test_line) > 68:
+                                c.drawString(125, y, wrapped_line.strip())
+                                y -= 10
+                                wrapped_line = word + " "
+                            else:
+                                wrapped_line = test_line
+                        if wrapped_line:
+                            c.drawString(125, y, wrapped_line.strip())
+                            y -= 10
+
+                        c.setFillColorRGB(0, 0, 0)
+
+                    y -= 6
+
+            # Panel images if available
+            uploaded_images = result.get('uploaded_images', [])
+            if uploaded_images:
+                if y < 180:
+                    c.showPage()
+                    y = height - 50
+
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(60, y, "Panel Photos:")
+                y -= 14
+
+                for img_url in uploaded_images[:2]:  # Show up to 2 panel images
+                    try:
+                        # Convert storage URL to file path
+                        storage_url = img_url
+                        file_path = str(base_path / storage_url.replace('/storage/', ''))
+
+                        if os.path.exists(file_path):
+                            if y < 180:
+                                c.showPage()
+                                y = height - 50
+
+                            img_width = 200
+                            img_height = 150
+                            img = ImageReader(file_path)
+                            c.drawImage(img, 80, y - img_height, width=img_width, height=img_height, preserveAspectRatio=True)
+                            y -= (img_height + 10)
+                    except Exception:
+                        pass  # Skip images that can't be loaded
+
+                y -= 6
         else:
             # Fallback for unknown analysis types
             c.setFont("Helvetica", 10)

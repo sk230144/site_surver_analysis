@@ -128,3 +128,83 @@ async def run_roof_risk_with_data(
         db.commit()
 
     return rec
+
+@router.post("/projects/{project_id}/analysis/electrical/run_with_data", response_model=AnalysisOut)
+async def run_electrical_with_data(
+    project_id: int,
+    images: List[UploadFile] = File(default=[]),
+    electrical_data: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Run electrical analysis with optional panel images and electrical specifications"""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Parse electrical data
+    try:
+        electrical_dict = json.loads(electrical_data)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid electrical data JSON")
+
+    # Save uploaded panel images as assets (optional)
+    upload_dir = f"storage/uploads/project_{project_id}"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    saved_image_urls = []
+    saved_image_paths = []
+
+    for image in images:
+        # Generate unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        filename = f"panel_{timestamp}_{image.filename}"
+        file_path = os.path.join(upload_dir, filename)
+
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        # Create asset record
+        asset = Asset(
+            project_id=project_id,
+            kind="photo",
+            filename=filename,
+            storage_url=f"/storage/uploads/project_{project_id}/{filename}",
+            content_type=image.content_type,
+            meta={"file_size": os.path.getsize(file_path), "source": "electrical_analysis"}
+        )
+        db.add(asset)
+        saved_image_urls.append(asset.storage_url)
+        saved_image_paths.append(file_path)
+
+    db.commit()
+
+    # Create analysis result record
+    rec = AnalysisResult(
+        project_id=project_id,
+        kind="electrical",
+        status="queued",
+        result={}
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+
+    # Enqueue analysis with images and electrical data
+    try:
+        from app.worker import enqueue_electrical_with_data
+        enqueue_electrical_with_data(rec.id, project_id, saved_image_paths, electrical_dict)
+    except Exception as e:
+        # If worker not available, run synchronously
+        from app.services.electrical import run_electrical_analysis
+        rec.status = "running"
+        db.commit()
+
+        rec.result = run_electrical_analysis(electrical_dict, saved_image_paths if saved_image_paths else None)
+        rec.result["uploaded_images"] = saved_image_urls
+        rec.result["image_count"] = len(saved_image_urls)
+
+        rec.status = "done"
+        db.commit()
+
+    return rec
