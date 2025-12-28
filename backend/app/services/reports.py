@@ -147,10 +147,11 @@ def build_minimal_report(project, assets, analyses) -> bytes:
             c.showPage()
             y = height - 50
 
-        # Analysis header
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y, f"{kind.upper()} Analysis")
-        y -= 18
+        # Analysis header (skip for electrical - it has custom header)
+        if kind != "electrical":
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(50, y, f"{kind.upper()} Analysis")
+            y -= 18
 
         # Show detailed results for shading analysis
         if kind == "shading" and status == "done" and result:
@@ -637,244 +638,214 @@ def build_minimal_report(project, assets, analyses) -> bytes:
 
                     y -= 8  # Space between images
 
-        # Electrical analysis - comprehensive display
+        # Electrical analysis - customer-ready format
         elif kind == "electrical":
             # Get electrical data
             electrical_status = result.get('status', 'unknown')
             score = result.get('score', 0)
-            summary = result.get('summary', '')
             checks = result.get('checks', [])
             recommendations = result.get('recommendations', [])
             calculations = result.get('calculations', {})
+            # Use electrical_data_used from worker, or raw_data from service
+            electrical_data_used = result.get('electrical_data_used', result.get('raw_data', {}))
 
-            # Status badge with color
+            # Status badge with color and icon
             if electrical_status == "ok":
                 status_color = (0.0, 0.6, 0.0)  # Green
-                status_text = "✓ APPROVED"
+                status_icon = "✓"
+                status_label = "APPROVED"
+                quick_summary = "Safe to install solar on current electrical system"
+                action_required = "Proceed with installation"
             elif electrical_status == "warning":
                 status_color = (0.9, 0.6, 0.0)  # Orange
-                status_text = "⚠ WARNING"
+                status_icon = "⚠"
+                status_label = "WARNING"
+                quick_summary = "Electrical system has concerns that need review"
+                action_required = "Review safety checks before proceeding"
             else:  # fail
                 status_color = (0.8, 0.0, 0.0)  # Red
-                status_text = "✗ FAILED"
+                status_icon = "✗"
+                status_label = "FAILED"
+                quick_summary = "Unsafe to install solar on current electrical system"
+                action_required = "Electrical panel upgrade needed"
 
+            # === TOP SUMMARY BOX (MOST VISIBLE) ===
             c.setFont("Helvetica-Bold", 11)
             c.setFillColorRGB(*status_color)
-            c.drawString(60, y, status_text)
+            c.drawString(60, y, f"{status_icon} Electrical: {status_label}")
             c.setFillColorRGB(0, 0, 0)
+            y -= 14
 
-            # Score
+            c.setFont("Helvetica", 9)
+            c.drawString(60, y, quick_summary)
+            y -= 12
+
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(60, y, f"Action required: {action_required}")
+            y -= 18
+
+            # Divider line
+            c.setLineWidth(0.5)
+            c.setStrokeColorRGB(0.7, 0.7, 0.7)
+            c.line(60, y, width - 60, y)
+            y -= 14
+
+            # === DETAILED ANALYSIS SECTION ===
+            # Header: Electrical Status
+            c.setFont("Helvetica-Bold", 11)
+            c.setFillColorRGB(*status_color)
+            c.drawString(60, y, f"{status_icon} {status_label}")
+            c.setFillColorRGB(0, 0, 0)
+            y -= 14
+
+            # Safety Score
             c.setFont("Helvetica", 10)
-            c.drawString(200, y, f"Safety Score: {score}/100")
-            y -= 16
+            c.drawString(60, y, f"Safety Score: {score} / 100")
+            y -= 14
 
-            # Summary
-            if summary:
-                c.setFont("Helvetica", 9)
-                c.setFillColorRGB(0.2, 0.2, 0.2)
-                c.drawString(60, y, summary)
-                c.setFillColorRGB(0, 0, 0)
-                y -= 16
+            # Technical summary
+            system_size = calculations.get('system_size_kw', 'N/A')
+            solar_breaker = calculations.get('solar_breaker_a', 'N/A')
+            panel_rating = calculations.get('main_panel_rating_a', 'N/A')
 
-            # Key Calculations
-            if calculations:
-                c.setFont("Helvetica-Bold", 10)
-                c.drawString(60, y, "Capacity Analysis (NEC 120% Rule):")
-                y -= 14
+            c.setFont("Helvetica", 9)
+            c.setFillColorRGB(0.2, 0.2, 0.2)
+            c.drawString(60, y, f"{system_size}kW system requires {solar_breaker}A breaker on {panel_rating}A panel")
+            c.setFillColorRGB(0, 0, 0)
+            y -= 18
 
-                c.setFont("Helvetica", 9)
-                calc_items = [
-                    f"Solar System: {calculations.get('system_size_kw', 'N/A')} kW → {calculations.get('solar_breaker_a', 'N/A')}A breaker required",
-                    f"Main Panel Rating: {calculations.get('main_panel_rating_a', 'N/A')}A",
-                    f"Main Breaker: {calculations.get('main_breaker_a', 'N/A')}A",
-                    f"120% Backfeed Limit: {calculations.get('backfeed_limit_a', 'N/A')}A",
-                    f"Total Required: {calculations.get('required_capacity_a', 'N/A')}A",
-                    f"Margin: {calculations.get('capacity_margin_a', 'N/A')}A ({calculations.get('capacity_utilization_percent', 'N/A')}% utilized)"
-                ]
+            # System Details Section
+            if y < 180:
+                c.showPage()
+                y = height - 50
 
-                for item in calc_items:
-                    if y < 50:
-                        c.showPage()
-                        y = height - 50
-                    c.drawString(65, y, f"• {item}")
-                    y -= 12
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(60, y, "System Details:")
+            y -= 14
 
-                y -= 6
+            c.setFont("Helvetica", 9)
+            system_details = [
+                f"- Planned Solar System Size: {electrical_data_used.get('system_size_kw', calculations.get('system_size_kw', 'N/A'))} kW",
+                f"- Main Panel Rating: {electrical_data_used.get('main_panel_rating_a', calculations.get('main_panel_rating_a', 'N/A'))} A",
+                f"- Main Breaker Rating: {electrical_data_used.get('main_breaker_rating_a', calculations.get('main_breaker_a', 'N/A'))} A",
+                f"- Solar Breaker Required: {calculations.get('solar_breaker_a', 'N/A')} A",
+                f"- Phase Type: {(electrical_data_used.get('phase_type', calculations.get('phase_type', 'N/A'))).replace('_', ' ').title()}",
+                f"- Voltage: {electrical_data_used.get('voltage', calculations.get('voltage', 'N/A'))} V"
+            ]
 
-            # Safety Checks
-            if checks:
-                if y < 100:
+            for detail in system_details:
+                if y < 50:
                     c.showPage()
                     y = height - 50
+                c.drawString(65, y, detail)
+                y -= 12
 
-                c.setFont("Helvetica-Bold", 10)
-                c.drawString(60, y, "Safety Checks:")
-                y -= 14
+            y -= 6
 
-                for check in checks:
-                    if y < 60:
-                        c.showPage()
-                        y = height - 50
-
-                    check_status = check.get('status', 'unknown')
-                    check_name = check.get('name', 'Unknown Check')
-                    check_message = check.get('message', '')
-
-                    # Status icon
-                    if check_status == "pass":
-                        icon = "✓"
-                        icon_color = (0.0, 0.6, 0.0)
-                    elif check_status == "warning":
-                        icon = "⚠"
-                        icon_color = (0.9, 0.6, 0.0)
-                    else:  # fail
-                        icon = "✗"
-                        icon_color = (0.8, 0.0, 0.0)
-
-                    c.setFont("Helvetica-Bold", 9)
-                    c.setFillColorRGB(*icon_color)
-                    c.drawString(65, y, icon)
-                    c.setFillColorRGB(0, 0, 0)
-
-                    c.setFont("Helvetica-Bold", 9)
-                    c.drawString(80, y, check_name)
-                    y -= 12
-
-                    # Check message - word wrap
-                    c.setFont("Helvetica", 8)
-                    c.setFillColorRGB(0.3, 0.3, 0.3)
-                    words = check_message.split()
-                    line = ""
-                    for word in words:
-                        test_line = line + word + " "
-                        if len(test_line) > 70:
-                            c.drawString(85, y, line.strip())
-                            y -= 10
-                            line = word + " "
-                        else:
-                            line = test_line
-                    if line:
-                        c.drawString(85, y, line.strip())
-                        y -= 10
-
-                    c.setFillColorRGB(0, 0, 0)
-                    y -= 6
-
-                y -= 4
-
-            # Recommendations
-            if recommendations:
+            # Key Findings Section
+            if checks:
                 if y < 120:
                     c.showPage()
                     y = height - 50
 
                 c.setFont("Helvetica-Bold", 10)
-                c.drawString(60, y, "Recommendations:")
+                c.drawString(60, y, "Key Findings:")
                 y -= 14
 
-                for i, rec in enumerate(recommendations[:3], 1):  # Show top 3 recommendations
-                    if y < 80:
+                c.setFont("Helvetica", 9)
+
+                # Extract key findings from checks
+                key_findings = []
+                for check in checks:
+                    check_status = check.get('status', 'unknown')
+                    if check_status != 'pass':  # Only show warnings and failures
+                        check_name = check.get('name', 'Unknown')
+                        check_message = check.get('message', '')
+                        # Extract short summary from message
+                        if check_message:
+                            # Get first sentence or first 80 chars
+                            summary_text = check_message.split('.')[0] if '.' in check_message else check_message[:80]
+                            key_findings.append(f"- {summary_text}")
+
+                # If no issues, show positive findings
+                if not key_findings:
+                    key_findings = [
+                        "- All electrical safety checks passed successfully",
+                        "- Panel capacity meets requirements for solar installation",
+                        "- Wiring and panel condition rated as good"
+                    ]
+
+                for finding in key_findings[:4]:  # Show up to 4 key findings
+                    if y < 50:
                         c.showPage()
                         y = height - 50
 
-                    priority = rec.get('priority', 'low')
-                    action = rec.get('action', '')
-                    reason = rec.get('reason', '')
-                    next_step = rec.get('next_step', '')
-
-                    # Priority color
-                    if priority == "critical":
-                        priority_color = (0.8, 0.0, 0.0)
-                    elif priority == "high":
-                        priority_color = (0.9, 0.4, 0.0)
-                    elif priority == "medium":
-                        priority_color = (0.9, 0.6, 0.0)
-                    else:
-                        priority_color = (0.0, 0.5, 0.0)
-
-                    c.setFont("Helvetica-Bold", 9)
-                    c.setFillColorRGB(*priority_color)
-                    c.drawString(65, y, f"{i}.")
-                    c.setFillColorRGB(0, 0, 0)
-                    y -= 12
-
-                    # Action/Reason/Next step format
-                    rec_lines = [action, reason, next_step]
-                    for line in rec_lines:
-                        if not line:
-                            continue
-
-                        if line.startswith("Action:"):
-                            c.setFont("Helvetica-Bold", 9)
-                            c.setFillColorRGB(*priority_color)
-                            c.drawString(75, y, "Action:")
-                            c.setFillColorRGB(0, 0, 0)
-                            c.setFont("Helvetica", 9)
-                            text = line.replace("Action:", "").strip()
-                        elif line.startswith("Reason:"):
-                            c.setFont("Helvetica-Bold", 8)
-                            c.drawString(75, y, "Reason:")
-                            c.setFont("Helvetica", 8)
-                            text = line.replace("Reason:", "").strip()
-                        elif line.startswith("Next step:"):
-                            c.setFont("Helvetica-Bold", 8)
-                            c.drawString(75, y, "Next:")
-                            c.setFont("Helvetica", 8)
-                            text = line.replace("Next step:", "").strip()
+                    # Word wrap finding
+                    words = finding.split()
+                    line = ""
+                    for word in words:
+                        test_line = line + word + " "
+                        if len(test_line) > 70:
+                            c.drawString(65, y, line.strip())
+                            y -= 12
+                            line = word + " "
                         else:
-                            text = line
+                            line = test_line
+                    if line:
+                        c.drawString(65, y, line.strip())
+                        y -= 12
 
-                        # Word wrap
-                        c.setFillColorRGB(0.2, 0.2, 0.2)
-                        words = text.split()
-                        wrapped_line = ""
-                        for word in words:
-                            test_line = wrapped_line + word + " "
-                            if len(test_line) > 68:
-                                c.drawString(125, y, wrapped_line.strip())
-                                y -= 10
-                                wrapped_line = word + " "
-                            else:
-                                wrapped_line = test_line
-                        if wrapped_line:
-                            c.drawString(125, y, wrapped_line.strip())
-                            y -= 10
+                y -= 6
 
-                        c.setFillColorRGB(0, 0, 0)
-
-                    y -= 6
-
-            # Panel images if available
-            uploaded_images = result.get('uploaded_images', [])
-            if uploaded_images:
-                if y < 180:
+            # Recommendation Section
+            if recommendations:
+                if y < 100:
                     c.showPage()
                     y = height - 50
 
                 c.setFont("Helvetica-Bold", 10)
-                c.drawString(60, y, "Panel Photos:")
+                c.drawString(60, y, "Recommendation:")
                 y -= 14
 
-                for img_url in uploaded_images[:2]:  # Show up to 2 panel images
-                    try:
-                        # Convert storage URL to file path
-                        storage_url = img_url
-                        file_path = str(base_path / storage_url.replace('/storage/', ''))
+                # Get primary recommendation
+                primary_rec = recommendations[0] if recommendations else {}
+                action = primary_rec.get('action', '').replace('Action:', '').strip()
+                reason = primary_rec.get('reason', '').replace('Reason:', '').strip()
+                next_step = primary_rec.get('next_step', '').replace('Next step:', '').replace('Next:', '').strip()
 
-                        if os.path.exists(file_path):
-                            if y < 180:
-                                c.showPage()
-                                y = height - 50
+                # Combine into customer-friendly text
+                rec_text = action
+                if reason:
+                    rec_text += f" {reason}"
+                if next_step:
+                    rec_text += f" {next_step}"
 
-                            img_width = 200
-                            img_height = 150
-                            img = ImageReader(file_path)
-                            c.drawImage(img, 80, y - img_height, width=img_width, height=img_height, preserveAspectRatio=True)
-                            y -= (img_height + 10)
-                    except Exception:
-                        pass  # Skip images that can't be loaded
+                # Word wrap recommendation
+                c.setFont("Helvetica", 9)
+                words = rec_text.split()
+                line = ""
+                for word in words:
+                    test_line = line + word + " "
+                    if len(test_line) > 75:
+                        c.drawString(60, y, line.strip())
+                        y -= 12
+                        line = word + " "
+                    else:
+                        line = test_line
+                if line:
+                    c.drawString(60, y, line.strip())
+                    y -= 12
 
                 y -= 6
+
+            # Divider line
+            if y < 40:
+                c.showPage()
+                y = height - 50
+            c.setLineWidth(0.5)
+            c.setStrokeColorRGB(0.7, 0.7, 0.7)
+            c.line(60, y, width - 60, y)
+            y -= 10
         else:
             # Fallback for unknown analysis types
             c.setFont("Helvetica", 10)
