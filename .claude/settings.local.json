@@ -49,7 +49,11 @@
       "Bash(timeout 20 .venv/Scripts/python:*)",
       "Bash(timeout 30 .venv/Scripts/python:*)",
       "Bash(wc:*)",
-      "Bash(PYTHONPATH=. timeout 5 bash -c \".venv/Scripts/celery -A app.worker worker --loglevel=info --pool=solo 2>&1 | head -30\")"
+      "Bash(PYTHONPATH=. timeout 5 bash -c \".venv/Scripts/celery -A app.worker worker --loglevel=info --pool=solo 2>&1 | head -30\")",
+      "Bash(cd:*)",
+      "Bash(npm install:*)",
+      "Bash(node test-surveyor-logic.js:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }
