@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.api.deps import get_db
-from app.api.schemas import ProjectCreate, ProjectOut
+from app.api.schemas import ProjectCreate, ProjectOut, ProjectListResponse, PaginationMeta
 from app.db.models import Project
 import os
 import uuid
@@ -18,9 +18,63 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
     db.refresh(project)
     return project
 
-@router.get("", response_model=list[ProjectOut])
-def list_projects(db: Session = Depends(get_db)):
-    return list(db.execute(select(Project).order_by(Project.id.desc())).scalars().all())
+@router.get("", response_model=ProjectListResponse)
+def list_projects(
+    page: int = Query(1, ge=1, description="Page number (starting from 1)"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    search: str = Query("", description="Search by project name or address"),
+    db: Session = Depends(get_db)
+):
+    """
+    List projects with pagination and search support.
+    Returns paginated data with metadata.
+    """
+    # Calculate offset
+    offset = (page - 1) * limit
+
+    # Build base query
+    query = select(Project).order_by(Project.id.desc())
+
+    # Add search filter if search term is provided
+    if search.strip():
+        search_term = f"%{search.strip()}%"
+        query = query.where(
+            (Project.name.ilike(search_term)) |
+            (Project.address.ilike(search_term))
+        )
+
+    # Get total count with search filter
+    count_query = select(func.count(Project.id))
+    if search.strip():
+        search_term = f"%{search.strip()}%"
+        count_query = count_query.where(
+            (Project.name.ilike(search_term)) |
+            (Project.address.ilike(search_term))
+        )
+
+    total_count = db.execute(count_query).scalar() or 0
+
+    # Get paginated projects
+    projects = list(
+        db.execute(
+            query.offset(offset).limit(limit)
+        ).scalars().all()
+    )
+
+    # Calculate pagination metadata
+    total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
+
+    return ProjectListResponse(
+        data=projects,
+        pagination=PaginationMeta(
+            total=total_count,
+            page=page,
+            limit=limit,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1
+        )
+    )
 
 @router.get("/{project_id}", response_model=ProjectOut)
 def get_project(project_id: int, db: Session = Depends(get_db)):

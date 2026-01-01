@@ -7,22 +7,66 @@ import { apiGet, apiPost, apiDelete } from "../../lib/api";
 
 type Project = { id: number; name: string; address?: string | null; status: string };
 
+type PaginatedResponse = {
+  data: Project[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+};
+
 export default function ProjectsPage() {
   const qc = useQueryClient();
-  const { data, isLoading, error } = useQuery({ queryKey: ["projects"], queryFn: () => apiGet<Project[]>("/projects") });
-
   const [name, setName] = React.useState("");
   const [address, setAddress] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<number[]>([]);
   const [showConfirmModal, setShowConfirmModal] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<number[]>([]);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchInput, setSearchInput] = React.useState("");
+
+  const ITEMS_PER_PAGE = 20;
+
+  // Fetch paginated projects from backend with search
+  const { data: paginatedData, isLoading, error } = useQuery({
+    queryKey: ["projects", currentPage, searchQuery],
+    queryFn: () => {
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+      return apiGet<PaginatedResponse>(`/projects?page=${currentPage}&limit=${ITEMS_PER_PAGE}${searchParam}`);
+    },
+    keepPreviousData: true, // Keep showing old data while fetching new page
+  });
+
+  // Handle search with debounce effect
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Extract data for easier use
+  const projects = paginatedData?.data || [];
+  const pagination = paginatedData?.pagination;
+  const totalProjects = pagination?.total || 0;
+  const totalPages = pagination?.total_pages || 0;
 
   const create = useMutation({
     mutationFn: (payload: { name: string; address?: string }) => apiPost<Project>("/projects", payload),
     onSuccess: () => {
       setName("");
       setAddress("");
+      // Refetch all pages to update counts
       qc.invalidateQueries({ queryKey: ["projects"] });
+      // Go to first page to see new project
+      setCurrentPage(1);
     },
   });
 
@@ -31,17 +75,23 @@ export default function ProjectsPage() {
       await Promise.all(ids.map((id) => apiDelete(`/projects/${id}`)));
     },
     onSuccess: () => {
+      // Refetch current page
       qc.invalidateQueries({ queryKey: ["projects"] });
       setSelectedIds([]);
       setShowConfirmModal(false);
+
+      // If current page becomes empty, go to previous page
+      if (projects.length === selectedIds.length && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      }
     },
   });
 
   const handleSelectAll = () => {
-    if (selectedIds.length === (data?.length || 0)) {
+    if (selectedIds.length === projects.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(data?.map((p) => p.id) || []);
+      setSelectedIds(projects.map((p) => p.id));
     }
   };
 
@@ -95,24 +145,85 @@ export default function ProjectsPage() {
       </div>
 
       <div>
+        {/* Search Bar */}
+        <div style={{
+          marginBottom: '1.5rem',
+          maxWidth: '600px'
+        }}>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              className="input"
+              placeholder="🔍 Search projects by name or address..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              style={{
+                width: '100%',
+                paddingLeft: '1rem',
+                fontSize: '0.95rem'
+              }}
+            />
+            {searchInput && (
+              <button
+                onClick={() => setSearchInput("")}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '1.2rem',
+                  padding: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <div style={{
+              marginTop: '0.5rem',
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)'
+            }}>
+              {isLoading ? (
+                'Searching...'
+              ) : (
+                `Found ${totalProjects} project${totalProjects !== 1 ? 's' : ''} matching "${searchQuery}"`
+              )}
+            </div>
+          )}
+        </div>
+
         {isLoading && <p className="loading-text">Loading projects...</p>}
         {error && <p className="error-text">Failed to load projects.</p>}
 
-        {data && data.length > 0 && (
+        {projects && projects.length > 0 && (
           <>
             <div className="projects-toolbar">
               <div className="checkbox-container">
                 <input
                   type="checkbox"
                   className="checkbox"
-                  checked={selectedIds.length === data.length}
+                  checked={selectedIds.length === projects.length && projects.length > 0}
                   onChange={handleSelectAll}
                 />
                 <span style={{ color: "var(--text-secondary)" }}>
                   {selectedIds.length > 0
                     ? `${selectedIds.length} selected`
-                    : "Select all"}
+                    : "Select all on page"}
                 </span>
+              </div>
+
+              <div style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, totalProjects)} of {totalProjects} projects
               </div>
 
               {selectedIds.length > 0 && (
@@ -126,7 +237,7 @@ export default function ProjectsPage() {
             </div>
 
             <ul className="asset-list">
-              {data.map((p) => (
+              {projects.map((p) => (
                 <li
                   key={p.id}
                   className={`project-item ${selectedIds.includes(p.id) ? "selected" : ""}`}
@@ -157,11 +268,115 @@ export default function ProjectsPage() {
                 </li>
               ))}
             </ul>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginTop: '2rem',
+                paddingTop: '1.5rem',
+                borderTop: '1px solid var(--border-color)'
+              }}>
+                <button
+                  className="btn btn-small"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  style={{
+                    background: currentPage === 1 ? 'var(--bg-tertiary)' : 'var(--accent-blue)',
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  ⏮️ First
+                </button>
+
+                <button
+                  className="btn btn-small"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    background: currentPage === 1 ? 'var(--bg-tertiary)' : 'var(--accent-blue)',
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  ← Previous
+                </button>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: '0.5rem',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)'
+                }}>
+                  Page {currentPage} of {totalPages}
+                </div>
+
+                <button
+                  className="btn btn-small"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    background: currentPage === totalPages ? 'var(--bg-tertiary)' : 'var(--accent-blue)',
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Next →
+                </button>
+
+                <button
+                  className="btn btn-small"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    background: currentPage === totalPages ? 'var(--bg-tertiary)' : 'var(--accent-blue)',
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Last ⏭️
+                </button>
+              </div>
+            )}
           </>
         )}
 
-        {data && data.length === 0 && (
-          <div className="empty-state">No projects yet. Create your first project above!</div>
+        {paginatedData && projects.length === 0 && (
+          <div className="empty-state">
+            {searchQuery ? (
+              <>
+                No projects found matching "{searchQuery}".
+                <br />
+                <button
+                  onClick={() => setSearchInput("")}
+                  style={{
+                    marginTop: '1rem',
+                    padding: '0.5rem 1rem',
+                    background: 'var(--accent-blue)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '0.375rem',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  Clear Search
+                </button>
+              </>
+            ) : (
+              'No projects yet. Create your first project above!'
+            )}
+          </div>
         )}
       </div>
 

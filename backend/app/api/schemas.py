@@ -17,6 +17,18 @@ class ProjectOut(BaseModel):
     geometry_view_mode: str | None = "uploaded"
     created_at: datetime
 
+class PaginationMeta(BaseModel):
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+
+class ProjectListResponse(BaseModel):
+    data: list[ProjectOut]
+    pagination: PaginationMeta
+
 class AssetCreate(BaseModel):
     kind: str = Field(..., description="photo|drone_model|document")
     filename: str
