@@ -531,9 +531,21 @@ body {
   border-color: var(--accent-blue);
 }
 
-/* Force black text color for all input and textarea elements */
+/* Default white background with black text for inputs */
 input, textarea, select {
-  color: black !important;
+  background: white;
+  color: black;
+}
+
+/* Allow modal inputs to have custom colors */
+.modal-overlay input,
+.modal-overlay textarea,
+.modal-overlay select,
+.roof-risk-modal input,
+.roof-risk-modal textarea,
+.roof-risk-modal select {
+  background: var(--bg-secondary) !important;
+  color: white !important;
 }
 
 /* PDF Viewer Modal */

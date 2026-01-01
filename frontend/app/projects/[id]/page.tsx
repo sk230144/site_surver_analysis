@@ -1308,6 +1308,7 @@ export default function ProjectDetailPage() {
               </label>
               <input
                 type="file"
+                className="input"
                 multiple
                 accept="image/*"
                 onChange={(e) => {
@@ -1321,7 +1322,7 @@ export default function ProjectDetailPage() {
                   borderRadius: '0.375rem',
                   fontSize: '0.9rem',
                   background: 'var(--bg-secondary)',
-                  color: '#fff'
+                  color: 'var(--text-primary)'
                 }}
               />
               {roofImages.length > 0 && (
@@ -1343,6 +1344,7 @@ export default function ProjectDetailPage() {
                     Roof Age
                   </label>
                   <select
+                    className="select"
                     value={roofSurveyData.roof_age}
                     onChange={(e) => setRoofSurveyData({ ...roofSurveyData, roof_age: e.target.value })}
                     style={{
@@ -1352,7 +1354,7 @@ export default function ProjectDetailPage() {
                       borderRadius: '0.375rem',
                       fontSize: '0.9rem',
                       background: 'var(--bg-secondary)',
-                      color: '#fff'
+                      color: 'var(--text-primary)'
                     }}
                   >
                     <option value="">Select age...</option>
@@ -1369,6 +1371,7 @@ export default function ProjectDetailPage() {
                     Roof Type
                   </label>
                   <select
+                    className="select"
                     value={roofSurveyData.roof_type}
                     onChange={(e) => setRoofSurveyData({ ...roofSurveyData, roof_type: e.target.value })}
                     style={{
@@ -1378,7 +1381,7 @@ export default function ProjectDetailPage() {
                       borderRadius: '0.375rem',
                       fontSize: '0.9rem',
                       background: 'var(--bg-secondary)',
-                      color: '#fff'
+                      color: 'var(--text-primary)'
                     }}
                   >
                     <option value="">Select type...</option>
@@ -1397,6 +1400,7 @@ export default function ProjectDetailPage() {
                   </label>
                   <input
                     type="text"
+                    className="input"
                     value={roofSurveyData.slope_angle}
                     onChange={(e) => setRoofSurveyData({ ...roofSurveyData, slope_angle: e.target.value })}
                     placeholder="e.g., 15"
@@ -1407,7 +1411,7 @@ export default function ProjectDetailPage() {
                       borderRadius: '0.375rem',
                       fontSize: '0.9rem',
                       background: 'var(--bg-secondary)',
-                      color: '#fff'
+                      color: 'var(--text-primary)'
                     }}
                   />
                 </div>
@@ -1426,6 +1430,7 @@ export default function ProjectDetailPage() {
                   {roofSurveyData.visible_cracks && (
                     <div style={{ marginLeft: '1.5rem' }}>
                       <select
+                        className="select"
                         value={roofSurveyData.crack_severity}
                         onChange={(e) => setRoofSurveyData({ ...roofSurveyData, crack_severity: e.target.value })}
                         style={{
@@ -1434,7 +1439,7 @@ export default function ProjectDetailPage() {
                           borderRadius: '0.375rem',
                           fontSize: '0.85rem',
                           background: 'var(--bg-secondary)',
-                          color: '#fff'
+                          color: 'var(--text-primary)'
                         }}
                       >
                         <option value="minor">Minor cracks</option>
@@ -1487,6 +1492,7 @@ export default function ProjectDetailPage() {
                   </label>
                   <input
                     type="number"
+                    className="input"
                     value={roofSurveyData.obstacle_count}
                     onChange={(e) => setRoofSurveyData({ ...roofSurveyData, obstacle_count: parseInt(e.target.value) || 0 })}
                     min="0"
@@ -1497,7 +1503,7 @@ export default function ProjectDetailPage() {
                       borderRadius: '0.375rem',
                       fontSize: '0.9rem',
                       background: 'var(--bg-secondary)',
-                      color: '#fff'
+                      color: 'var(--text-primary)'
                     }}
                   />
                 </div>
