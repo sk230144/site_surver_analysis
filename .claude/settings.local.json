@@ -53,7 +53,15 @@
       "Bash(cd:*)",
       "Bash(npm install:*)",
       "Bash(node test-surveyor-logic.js:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(.venvScriptspython create_test_project.py)",
+      "Bash(../.venv/Scripts/python.exe create_test_project.py)",
+      "Bash(docker ps:*)",
+      "Bash(dir:*)",
+      "Bash(.venv/Scripts/alembic revision:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
