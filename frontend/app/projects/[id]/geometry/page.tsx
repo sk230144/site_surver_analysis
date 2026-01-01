@@ -34,6 +34,12 @@ export default function GeometryPage() {
   // Mode toggle state
   const [mode, setMode] = React.useState<'surveyor' | 'advanced'>('surveyor');
 
+  // Fetch project details
+  const projectQ = useQuery({
+    queryKey: ["project", id],
+    queryFn: () => apiGet<any>(`/projects/${id}`)
+  });
+
   const planesQ = useQuery({ queryKey: ["planes", id], queryFn: () => apiGet<RoofPlane[]>(`/projects/${id}/roof-planes`) });
   const obsQ = useQuery({ queryKey: ["obs", id], queryFn: () => apiGet<Obstruction[]>(`/projects/${id}/obstructions`) });
 
@@ -167,6 +173,7 @@ export default function GeometryPage() {
         <div className="mt-6">
           <SurveyorMapEditor
             projectId={id}
+            project={projectQ.data}
             existingPlanes={planesQ.data || []}
             existingObstructions={obsQ.data || []}
             onRoofPlaneAdd={handleSurveyorRoofPlane}

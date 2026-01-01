@@ -13,6 +13,8 @@ class ProjectOut(BaseModel):
     name: str
     address: str | None
     status: str
+    uploaded_image_url: str | None = None
+    geometry_view_mode: str | None = "uploaded"
     created_at: datetime
 
 class AssetCreate(BaseModel):

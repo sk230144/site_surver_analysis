@@ -410,14 +410,26 @@ def analyze_plane_advanced(roof_plane: Dict, obstructions: List[Dict],
                 # Calculate potential production (W/m²)
                 potential_production = irradiance * efficiency
 
-                # Project shadows
+                # Project shadows - only from nearby obstructions
                 shadow_polygons = []
                 for obs in obs_data:
-                    shadow = ShadowProjector.project_shadow(
-                        obs["geometry"], obs["height"], sun_az, sun_el
-                    )
-                    if shadow:
-                        shadow_polygons.append(shadow)
+                    # Check distance between obstruction and roof
+                    distance = roof_geom.distance(obs["geometry"])
+
+                    # Calculate maximum shadow casting distance
+                    # A 10m tall tree at 10° elevation can cast ~57m shadow
+                    # Formula: max_shadow = height / tan(min_elevation)
+                    # Use 5° as minimum useful sun elevation
+                    max_shadow_distance = obs["height"] / math.tan(math.radians(5))
+
+                    # Only consider obstructions within shadow-casting range
+                    # Add 20% buffer for safety
+                    if distance <= max_shadow_distance * 1.2:
+                        shadow = ShadowProjector.project_shadow(
+                            obs["geometry"], obs["height"], sun_az, sun_el
+                        )
+                        if shadow:
+                            shadow_polygons.append(shadow)
 
                 # Calculate shaded percentage
                 shaded_pct = ShadowProjector.calculate_shaded_area(roof_geom, shadow_polygons)

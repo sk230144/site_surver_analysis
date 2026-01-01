@@ -16,6 +16,8 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="new")
+    uploaded_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    geometry_view_mode: Mapped[str | None] = mapped_column(String(20), nullable=True, default="uploaded")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
