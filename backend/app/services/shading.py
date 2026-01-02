@@ -84,8 +84,14 @@ def analyze_plane_shading(roof_plane, obstructions):
                 # Calculate distance between centroids
                 distance = roof_centroid.distance(obs_centroid)
 
-                # Skip if obstruction is very far (>50m likely irrelevant)
-                if distance > 50:
+                # Calculate relative distance based on roof size
+                # Use 10x roof diagonal as threshold (handles both real-world meters and pixel coordinates)
+                roof_bounds = roof_geom.bounds  # (minx, miny, maxx, maxy)
+                roof_diagonal = ((roof_bounds[2] - roof_bounds[0])**2 + (roof_bounds[3] - roof_bounds[1])**2)**0.5
+                distance_threshold = max(50, roof_diagonal * 10)  # At least 50m, or 10x roof size
+
+                # Skip if obstruction is very far
+                if distance > distance_threshold:
                     continue
 
                 # Calculate shading impact score
