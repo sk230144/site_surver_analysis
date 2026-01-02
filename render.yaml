@@ -1,13 +1,9 @@
-services:
-  # PostgreSQL Database
-  - type: pserv
-    name: solar-ai-db
+databases:
+  - name: solar-ai-db
     plan: free
     region: oregon
-    ipAllowList: []
-    databaseName: solar_db
-    databaseUser: solar
 
+services:
   # Redis (for Celery)
   - type: redis
     name: solar-ai-redis
