@@ -197,7 +197,8 @@ body {
   gap: 0.75rem;
 }
 
-.input, .select {
+.input,
+.select {
   background: white;
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
@@ -208,7 +209,8 @@ body {
   outline: none;
 }
 
-.input:focus, .select:focus {
+.input:focus,
+.select:focus {
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -281,13 +283,15 @@ body {
   margin-bottom: 2rem;
 }
 
-.asset-list, .report-list {
+.asset-list,
+.report-list {
   display: grid;
   gap: 0.75rem;
   margin-top: 1.5rem;
 }
 
-.asset-item, .report-item {
+.asset-item,
+.report-item {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 0.75rem;
@@ -295,7 +299,8 @@ body {
   transition: all 0.3s ease;
 }
 
-.asset-item:hover, .report-item:hover {
+.asset-item:hover,
+.report-item:hover {
   background: var(--bg-tertiary);
   border-color: rgba(59, 130, 246, 0.4);
   transform: translateX(4px);
@@ -532,9 +537,13 @@ body {
 }
 
 /* Default white background with black text for inputs */
-input, textarea, select {
+input,
+textarea,
+select {
   background: white;
   color: black;
+  /* Prevent zoom on iOS */
+  font-size: 16px;
 }
 
 /* Allow modal inputs to have custom colors */
@@ -546,6 +555,369 @@ input, textarea, select {
 .roof-risk-modal select {
   background: var(--bg-secondary) !important;
   color: white !important;
+}
+
+/* Mobile and Tablet Responsive Styles */
+@media (max-width: 768px) {
+
+  /* Base layout adjustments */
+  .projects-page,
+  .project-detail-page {
+    padding: 1rem;
+  }
+
+  /* Typography */
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+  }
+
+  /* Project cards */
+  .project-card,
+  .section-card {
+    padding: 1rem;
+  }
+
+  /* Forms */
+  .form-group {
+    gap: 0.5rem;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  .input,
+  .select {
+    font-size: 16px !important;
+    /* Prevent zoom on iOS */
+    padding: 0.75rem;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    width: 100%;
+  }
+
+  .btn-small {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    width: auto;
+  }
+
+  /* Project navigation */
+  .project-nav {
+    flex-direction: column;
+  }
+
+  .nav-link {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Content grid */
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Asset and report lists */
+  .asset-item,
+  .report-item {
+    padding: 0.75rem;
+  }
+
+  /* Project items */
+  .project-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .project-content {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  /* Toolbar adjustments */
+  .projects-toolbar {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start !important;
+  }
+
+  /* Modal adjustments */
+  .modal-content {
+    padding: 1.5rem;
+    max-width: 95%;
+    margin: 1rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions button {
+    width: 100%;
+  }
+
+  /* PDF Viewer */
+  .pdf-viewer-modal {
+    width: 95vw;
+    height: 85vh;
+  }
+
+  /* Create project card */
+  .create-project-card {
+    max-width: 100%;
+  }
+
+  /* Asset filename truncation on mobile */
+  .asset-filename {
+    display: inline-block;
+    max-width: 15ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Delete button - show only icon on mobile */
+  .asset-delete-btn .delete-text {
+    display: none;
+  }
+
+  .asset-delete-btn {
+    padding: 0.5rem !important;
+    min-width: 44px !important;
+  }
+
+  /* Project navigation - full width buttons on mobile */
+  .project-nav-mobile {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .project-nav-link {
+    width: 100% !important;
+    text-align: center !important;
+  }
+}
+
+/* Tablet specific (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    width: auto;
+  }
+}
+
+/* Mobile specific (max 480px) */
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 1rem;
+  }
+
+  .project-card,
+  .section-card,
+  .create-project-card {
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  /* Pagination controls */
+  .pagination-controls {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .pagination-controls button {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  /* Touch-friendly minimum sizes */
+  button,
+  .btn,
+  input[type="checkbox"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Responsive styles for layout/geometry pages */
+@media (max-width: 768px) {
+
+  /* Mode toggle buttons */
+  .mode-toggle-container {
+    width: 100%;
+  }
+
+  /* Layout page header - column layout on mobile */
+  .layout-page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .layout-mode-toggle {
+    width: 100%;
+    flex-direction: column !important;
+  }
+
+  .layout-mode-toggle button {
+    width: 100%;
+  }
+
+  /* Button grids - make single column on mobile */
+  .button-grid-2,
+  .button-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Map containers */
+  .leaflet-container {
+    height: 400px !important;
+  }
+
+  /* Geometry editor */
+  .geometry-editor-container {
+    flex-direction: column;
+  }
+
+  .geometry-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Geometry page header */
+  .geometry-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .geometry-header>div:first-child {
+    width: 100%;
+  }
+
+  /* Geometry advanced mode grid */
+  .geometry-advanced-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Geometry top controls - mobile layout */
+  .geometry-controls-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto;
+  }
+
+  /* Row 1: Search location input and Go button */
+  .search-location-wrapper {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* Row 2: Locate Me and Dropdown side by side */
+  .locate-me-wrapper {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .image-source-wrapper {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  /* All fonts to 10px on mobile for geometry page */
+  .geometry-top-controls label,
+  .geometry-top-controls input,
+  .geometry-top-controls button,
+  .geometry-top-controls select,
+  .geometry-top-controls option,
+  .geometry-top-controls p,
+  .geometry-control-panel,
+  .geometry-control-panel h3,
+  .geometry-control-panel h4,
+  .geometry-control-panel label,
+  .geometry-control-panel input,
+  .geometry-control-panel button,
+  .geometry-control-panel select,
+  .geometry-control-panel option,
+  .geometry-control-panel p,
+  .geometry-control-panel div {
+    font-size: 10px !important;
+  }
+
+  /* Drawing controls sidebar */
+  .leaflet-draw-toolbar a {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  /* Map and controls layout - stack vertically */
+  .geometry-map-wrapper {
+    grid-template-columns: 1fr !important;
+  }
+
+  .geometry-control-panel {
+    order: 1;
+    padding: 0.75rem !important;
+    height: 500px;
+  }
+
+  .geometry-map-canvas {
+    order: 2;
+    height: 400px !important;
+  }
+
+  /* Roof risk analysis modal */
+  .roof-risk-modal .modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Analysis result cards */
+  .analysis-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Search bar */
+  .search-container {
+    max-width: 100% !important;
+  }
+}
+
+/* Tablet optimizations (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+
+  /* Keep 2-column grids on tablet */
+  .button-grid-2 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Keep 3-column as 2-column on tablet */
+  .button-grid-3 {
+    grid-template-columns: 1fr 1fr !important;
+  }
 }
 
 /* PDF Viewer Modal */

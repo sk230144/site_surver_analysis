@@ -113,12 +113,12 @@ export default function GeometryPage() {
   };
 
   return (
-    <main className="min-h-screen p-8" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+    <main className="min-h-screen project-detail-page" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <Link className="back-link" href={`/projects/${id}`}>← Back to project</Link>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+      <div className="geometry-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 className="text-2xl font-semibold">Geometry Editor</h2>
+          <h2 className="page-title">Geometry Editor</h2>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
             {mode === 'surveyor'
               ? 'Visual mode: Draw roof planes and mark obstructions on your site image'
@@ -127,13 +127,14 @@ export default function GeometryPage() {
         </div>
 
         {/* Mode Toggle */}
-        <div style={{
+        <div className="mode-toggle-container" style={{
           display: 'flex',
           gap: '0.5rem',
           background: 'var(--bg-secondary)',
           padding: '0.25rem',
           borderRadius: '0.5rem',
-          border: '1px solid var(--border-color)'
+          border: '1px solid var(--border-color)',
+          width: 'auto'
         }}>
           <button
             onClick={() => setMode('surveyor')}
@@ -184,7 +185,7 @@ export default function GeometryPage() {
 
       {/* Advanced Mode (Original) */}
       {mode === 'advanced' && (
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <div className="mt-6 grid gap-6 geometry-advanced-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
           {/* ROOF PLANES SECTION */}
           <section className="section-card">
             <h3 className="section-title">Roof Planes</h3>

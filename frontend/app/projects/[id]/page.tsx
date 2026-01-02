@@ -944,14 +944,14 @@ export default function ProjectDetailPage() {
             <div className="project-name">{projectQ.data.name}</div>
             <div className="project-address">{projectQ.data.address || "No address provided"}</div>
             <span className="project-status">Status: {projectQ.data.status}</span>
-            <div className="project-nav">
-              <Link className="nav-link" href={`/projects/${id}/geometry`}>
+            <div className="project-nav project-nav-mobile">
+              <Link className="nav-link project-nav-link" href={`/projects/${id}/geometry`}>
                 📐 Geometry
               </Link>
-              <Link className="nav-link" href={`/projects/${id}/layouts`}>
+              <Link className="nav-link project-nav-link" href={`/projects/${id}/layouts`}>
                 🔲 Layouts
               </Link>
-              <Link className="nav-link" href={`/projects/${id}/reports`}>
+              <Link className="nav-link project-nav-link" href={`/projects/${id}/reports`}>
                 📄 Reports
               </Link>
             </div>
@@ -1040,7 +1040,7 @@ export default function ProjectDetailPage() {
                   <div style={{ flex: 1 }}>
                     <div className="asset-title">
                       <span className={`badge ${getBadgeClass(a.kind)}`}>{a.kind}</span>
-                      {a.filename}
+                      <span className="asset-filename">{a.filename}</span>
                     </div>
                     <div className="asset-url">
                       <a
@@ -1059,7 +1059,7 @@ export default function ProjectDetailPage() {
                     </div>
                   </div>
                   <button
-                    className="btn btn-small"
+                    className="btn btn-small asset-delete-btn"
                     style={{
                       background: 'var(--error)',
                       borderColor: 'var(--error)',
@@ -1075,7 +1075,8 @@ export default function ProjectDetailPage() {
                     disabled={deleteAsset.isPending}
                     title="Delete asset"
                   >
-                    🗑️ Delete
+                    <span className="delete-icon">🗑️</span>
+                    <span className="delete-text"> Delete</span>
                   </button>
                 </div>
               </li>

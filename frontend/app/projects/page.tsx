@@ -271,15 +271,18 @@ export default function ProjectsPage() {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '0.5rem',
-                marginTop: '2rem',
-                paddingTop: '1.5rem',
-                borderTop: '1px solid var(--border-color)'
-              }}>
+              <div
+                className="pagination-controls"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  marginTop: '2rem',
+                  paddingTop: '1.5rem',
+                  borderTop: '1px solid var(--border-color)',
+                  flexWrap: 'wrap'
+                }}>
                 <button
                   className="btn btn-small"
                   onClick={() => setCurrentPage(1)}

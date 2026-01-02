@@ -866,15 +866,15 @@ export default function SurveyorMapEditor({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '700px' }}>
       {/* Top Controls Bar */}
-      <div style={{
+      <div className="geometry-top-controls" style={{
         background: 'var(--bg-secondary)',
         borderRadius: '0.5rem',
         border: '1px solid var(--border-color)',
         padding: '1rem',
       }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', alignItems: 'end' }}>
+        <div className="geometry-controls-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', alignItems: 'end' }}>
           {/* Location Search */}
-          <div>
+          <div className="search-location-wrapper">
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>
               🔍 Search Location
             </label>
@@ -900,7 +900,7 @@ export default function SurveyorMapEditor({
           </div>
 
           {/* Locate Me Button */}
-          <div>
+          <div className="locate-me-wrapper">
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>
               📍 GPS Location
             </label>
@@ -914,7 +914,7 @@ export default function SurveyorMapEditor({
           </div>
 
           {/* Image Source Toggle - Upload Image first as default */}
-          <div>
+          <div className="image-source-wrapper">
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>
               🖼️ Drawing Base
             </label>
@@ -979,9 +979,9 @@ export default function SurveyorMapEditor({
       </div>
 
       {/* Main Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '1.5rem', flex: 1, minHeight: 0 }}>
+      <div className="geometry-map-wrapper" style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '1.5rem', flex: 1, minHeight: 0 }}>
         {/* Map Canvas */}
-        <div style={{
+        <div className="geometry-map-canvas" style={{
           background: imageSource === 'uploaded' ? '#000000' : '#f0f0f0', // Black for uploaded, gray for satellite/map
           borderRadius: '0.5rem',
           border: '1px solid var(--border-color)',
@@ -996,7 +996,7 @@ export default function SurveyorMapEditor({
         </div>
 
         {/* Control Panel */}
-        <div style={{
+        <div className="geometry-control-panel" style={{
           background: 'var(--bg-secondary)',
           borderRadius: '0.5rem',
           border: '1px solid var(--border-color)',

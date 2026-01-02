@@ -159,7 +159,7 @@ export default function LayoutsPage() {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+      <div className="layout-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 className="text-2xl font-semibold">Panel Layout</h2>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
@@ -170,7 +170,7 @@ export default function LayoutsPage() {
         </div>
 
         {/* Mode Toggle */}
-        <div style={{
+        <div className="layout-mode-toggle" style={{
           display: 'flex',
           gap: '0.5rem',
           background: 'var(--bg-secondary)',
@@ -286,7 +286,7 @@ export default function LayoutsPage() {
               <label style={{ display: 'block', marginBottom: '0.75rem', fontSize: '0.9rem', fontWeight: 500 }}>
                 Panel Orientation
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="button-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <button
                   onClick={() => setPanelOrientation('portrait')}
                   style={{
@@ -341,7 +341,7 @@ export default function LayoutsPage() {
               <label style={{ display: 'block', marginBottom: '0.75rem', fontSize: '0.9rem', fontWeight: 500 }}>
                 Panel Placement
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="button-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <button
                   onClick={() => setFillMode('max-fit')}
                   style={{
@@ -414,7 +414,7 @@ export default function LayoutsPage() {
               <label style={{ display: 'block', marginBottom: '0.75rem', fontSize: '0.9rem', fontWeight: 500 }}>
                 Panel Spacing
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              <div className="button-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                 <button
                   onClick={() => setPanelSpacing('tight')}
                   style={{
