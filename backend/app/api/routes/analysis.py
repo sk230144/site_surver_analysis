@@ -35,17 +35,72 @@ def run_analysis(project_id: int, kind: str, db: Session = Depends(get_db)):
             detail=f"Invalid analysis kind. Must be one of: {', '.join(VALID_ANALYSIS_KINDS)}"
         )
 
-    rec = AnalysisResult(project_id=project_id, kind=kind, status="queued", result={})
+    rec = AnalysisResult(project_id=project_id, kind=kind, status="running", result={})
     db.add(rec)
     db.commit()
     db.refresh(rec)
 
-    # Optional: enqueue Celery job (works without worker)
-    try:
-        from app.worker import enqueue_analysis
-        enqueue_analysis(rec.id, kind, project_id)
-    except Exception:
-        pass  # Continue even if worker not available
+    # Run analysis synchronously (Celery worker not available on free tier)
+    from sqlalchemy import select
+    from app.db.models import RoofPlane, Obstruction, Layout, Asset
+
+    if kind == "shading":
+        from app.services.shading import run_shading_analysis
+        planes = db.execute(select(RoofPlane).where(RoofPlane.project_id == project_id)).scalars().all()
+        obs = db.execute(select(Obstruction).where(Obstruction.project_id == project_id)).scalars().all()
+
+        rec.result = run_shading_analysis(
+            roof_planes=[{
+                "id": p.id,
+                "polygon_wkt": p.polygon_wkt,
+                "name": p.name,
+                "tilt_deg": p.tilt_deg,
+                "azimuth_deg": p.azimuth_deg
+            } for p in planes],
+            obstructions=[{
+                "id": o.id,
+                "polygon_wkt": o.polygon_wkt,
+                "type": o.type,
+                "height_m": o.height_m
+            } for o in obs],
+        )
+    elif kind == "compliance":
+        from app.services.compliance import run_compliance_analysis
+        planes = db.execute(select(RoofPlane).where(RoofPlane.project_id == project_id)).scalars().all()
+        layouts = db.execute(select(Layout).where(Layout.project_id == project_id)).scalars().all()
+
+        layout_dicts = []
+        for l in layouts:
+            layout_data = l.data if l.data else {}
+            layout_dicts.append({
+                "id": l.id,
+                "roof_plane_id": layout_data.get("roof_plane_id"),
+                "panel_count": layout_data.get("panel_count", 0),
+                "offset_from_edge_m": layout_data.get("offset_from_edge_m", 0.0),
+                "layout_config": layout_data.get("layout_config", {})
+            })
+
+        rec.result = run_compliance_analysis(
+            roof_planes=[{
+                "id": p.id,
+                "polygon_wkt": p.polygon_wkt,
+                "name": p.name,
+                "tilt_deg": p.tilt_deg,
+                "azimuth_deg": p.azimuth_deg
+            } for p in planes],
+            layouts=layout_dicts
+        )
+    elif kind == "roof_risk":
+        from app.services.roof_risk import run_roof_risk
+        imgs = db.execute(select(Asset).where(Asset.project_id == project_id, Asset.kind == "photo")).scalars().all()
+        rec.result = run_roof_risk([a.storage_url for a in imgs], {})
+    elif kind == "electrical":
+        rec.result = {"summary": "Use the /projects/{id}/analysis/electrical/run_with_data endpoint with panel data"}
+    else:
+        rec.result = {"summary": f"Unknown analysis kind: {kind}"}
+
+    rec.status = "done"
+    db.commit()
 
     return rec
 
@@ -110,22 +165,17 @@ async def run_roof_risk_with_data(
     db.commit()
     db.refresh(rec)
 
-    # Enqueue analysis with images and survey data
-    try:
-        from app.worker import enqueue_roof_risk_with_data
-        enqueue_roof_risk_with_data(rec.id, project_id, saved_image_paths, survey_dict)
-    except Exception as e:
-        # If worker not available, run synchronously
-        from app.services.roof_risk import run_roof_risk
-        rec.status = "running"
-        db.commit()
+    # Run analysis synchronously (Celery worker not available on free tier)
+    from app.services.roof_risk import run_roof_risk
+    rec.status = "running"
+    db.commit()
 
-        rec.result = run_roof_risk(saved_image_urls, survey_dict)
-        rec.result["uploaded_images"] = saved_image_urls
-        rec.result["image_count"] = len(saved_image_urls)
+    rec.result = run_roof_risk(saved_image_urls, survey_dict, saved_image_paths)
+    rec.result["uploaded_images"] = saved_image_urls
+    rec.result["image_count"] = len(saved_image_urls)
 
-        rec.status = "done"
-        db.commit()
+    rec.status = "done"
+    db.commit()
 
     return rec
 
@@ -190,21 +240,16 @@ async def run_electrical_with_data(
     db.commit()
     db.refresh(rec)
 
-    # Enqueue analysis with images and electrical data
-    try:
-        from app.worker import enqueue_electrical_with_data
-        enqueue_electrical_with_data(rec.id, project_id, saved_image_paths, electrical_dict)
-    except Exception as e:
-        # If worker not available, run synchronously
-        from app.services.electrical import run_electrical_analysis
-        rec.status = "running"
-        db.commit()
+    # Run analysis synchronously (Celery worker not available on free tier)
+    from app.services.electrical import run_electrical_analysis
+    rec.status = "running"
+    db.commit()
 
-        rec.result = run_electrical_analysis(electrical_dict, saved_image_paths if saved_image_paths else None)
-        rec.result["uploaded_images"] = saved_image_urls
-        rec.result["image_count"] = len(saved_image_urls)
+    rec.result = run_electrical_analysis(electrical_dict, saved_image_paths if saved_image_paths else None)
+    rec.result["uploaded_images"] = saved_image_urls
+    rec.result["image_count"] = len(saved_image_urls)
 
-        rec.status = "done"
-        db.commit()
+    rec.status = "done"
+    db.commit()
 
     return rec
