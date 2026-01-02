@@ -49,7 +49,8 @@ def run_analysis(project_id: int, kind: str, db: Session = Depends(get_db)):
         planes = db.execute(select(RoofPlane).where(RoofPlane.project_id == project_id)).scalars().all()
         obs = db.execute(select(Obstruction).where(Obstruction.project_id == project_id)).scalars().all()
 
-        rec.result = run_shading_analysis(
+        # HYBRID APPROACH: Run mathematical analysis first
+        math_result = run_shading_analysis(
             roof_planes=[{
                 "id": p.id,
                 "polygon_wkt": p.polygon_wkt,
@@ -64,6 +65,121 @@ def run_analysis(project_id: int, kind: str, db: Session = Depends(get_db)):
                 "height_m": o.height_m
             } for o in obs],
         )
+
+        # Try to enhance with AI analysis if possible
+        # Check if there's a recent geometry image we can analyze
+        from app.db.models import Asset as AssetModel
+        import os
+        from app.core.config import settings
+
+        # Look for most recent geometry screenshot asset
+        geometry_assets = db.execute(
+            select(AssetModel)
+            .where(AssetModel.project_id == project_id)
+            .where(AssetModel.kind == "geometry_screenshot")
+            .order_by(AssetModel.created_at.desc())
+            .limit(1)
+        ).scalar()
+
+        ai_result = None
+        if geometry_assets and settings.GEMINI_API_KEY:
+            # Found a geometry screenshot - use AI to enhance analysis
+            try:
+                from app.services.gemini_vision import analyze_shading_with_gemini
+                import os
+
+                # Get the image file path
+                geometry_image_path = geometry_assets.storage_url.lstrip('/')
+                full_path = os.path.join(os.getcwd(), geometry_image_path)
+
+                if os.path.exists(full_path):
+                    roof_planes_data = [{
+                        "id": p.id,
+                        "name": p.name,
+                        "tilt_deg": p.tilt_deg,
+                        "azimuth_deg": p.azimuth_deg
+                    } for p in planes]
+
+                    obstructions_data = [{
+                        "id": o.id,
+                        "type": o.type,
+                        "height_m": o.height_m
+                    } for o in obs]
+
+                    latitude = getattr(project, 'latitude', None)
+                    longitude = getattr(project, 'longitude', None)
+
+                    ai_result = analyze_shading_with_gemini(
+                        full_path,
+                        roof_planes_data,
+                        obstructions_data,
+                        latitude,
+                        longitude
+                    )
+            except Exception as e:
+                # AI failed, continue with math-only result
+                math_result["ai_enhancement_error"] = str(e)
+
+        # Combine mathematical and AI results for hybrid analysis
+        if ai_result and "error" not in ai_result:
+            # HYBRID MODE: Blend math and AI results
+            math_score = math_result.get("average_shade_risk", 0)
+            ai_score = ai_result.get("overall_shade_risk_score", 0)
+
+            # Weighted average: 40% math, 60% AI (AI is more accurate for visual analysis)
+            hybrid_score = (math_score * 0.4) + (ai_score * 0.6)
+
+            # Calculate confidence based on agreement
+            score_diff = abs(math_score - ai_score)
+            if score_diff < 10:
+                confidence = "very_high"
+            elif score_diff < 20:
+                confidence = "high"
+            elif score_diff < 30:
+                confidence = "medium"
+            else:
+                confidence = "low"
+
+            rec.result = {
+                "analysis_method": "hybrid_math_ai",
+                "summary": f"🎯 Hybrid Analysis (Math + AI) - Confidence: {confidence.replace('_', ' ').title()}",
+                "hybrid_shade_risk_score": round(hybrid_score, 1),
+                "confidence": confidence,
+
+                # Math results
+                "math_analysis": {
+                    "score": math_score,
+                    "details": math_result
+                },
+
+                # AI results
+                "ai_analysis": {
+                    "score": ai_score,
+                    "findings": ai_result.get("findings", []),
+                    "time_of_day_impact": ai_result.get("time_of_day_impact"),
+                    "seasonal_impact": ai_result.get("seasonal_impact"),
+                    "recommendations": ai_result.get("recommendations", [])
+                },
+
+                # Combined insights
+                "final_assessment": {
+                    "shade_risk_score": round(hybrid_score, 1),
+                    "estimated_annual_loss_percent": round((math_result.get("planes", [{}])[0].get("estimated_annual_loss_percent", 0) * 0.4) + (ai_result.get("estimated_annual_loss_percent", 0) * 0.6), 1),
+                    "consensus": "Both analyses agree" if score_diff < 15 else "Analyses show different perspectives",
+                    "dominant_obstruction": ai_result.get("dominant_obstruction") or math_result.get("planes", [{}])[0].get("dominant_obstruction")
+                },
+
+                "total_roof_planes": math_result.get("total_roof_planes"),
+                "total_obstructions": math_result.get("total_obstructions")
+            }
+        else:
+            # AI not available or failed - use math-only result with note
+            rec.result = math_result
+            rec.result["analysis_method"] = "mathematical_only"
+            if ai_result and "error" in ai_result:
+                rec.result["ai_note"] = f"AI enhancement unavailable: {ai_result.get('error')}"
+            else:
+                rec.result["ai_note"] = "Upload a geometry screenshot to enable AI-enhanced hybrid analysis"
     elif kind == "compliance":
         from app.services.compliance import run_compliance_analysis
         planes = db.execute(select(RoofPlane).where(RoofPlane.project_id == project_id)).scalars().all()
