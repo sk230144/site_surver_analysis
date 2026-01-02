@@ -8,9 +8,13 @@ from pathlib import Path
 
 app = FastAPI(title="Solar AI Platform API", version="0.2.0")
 
+# CORS origins - supports both development and production
+import os
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
