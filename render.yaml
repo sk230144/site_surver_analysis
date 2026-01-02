@@ -13,8 +13,8 @@ services:
     name: solar-ai-redis
     plan: free
     region: oregon
-    maxmemoryPolicy: noeviction
     ipAllowList: []
+    maxmemoryPolicy: noeviction
 
   # FastAPI Backend
   - type: web
@@ -23,8 +23,8 @@ services:
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
@@ -42,10 +42,6 @@ services:
         value: https://solar-ai-platform.vercel.app,http://localhost:3000
       - key: GEMINI_API_KEY
         sync: false
-    disk:
-      name: solar-ai-storage
-      mountPath: /opt/render/project/src/backend/storage
-      sizeGB: 1
 
   # Celery Worker
   - type: worker
@@ -54,8 +50,8 @@ services:
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "celery -A app.worker worker --loglevel=info --pool=solo"
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A app.worker worker --loglevel=info --pool=solo
     envVars:
       - key: DATABASE_URL
         fromDatabase:
