@@ -5,6 +5,7 @@ from app.api.routes.geometry import router as geometry
 from app.api.routes.layouts import router as layouts
 from app.api.routes.rulesets import router as rulesets
 from app.api.routes.analysis import router as analysis
+from app.api.routes.shading_ai import router as shading_ai
 from app.api.routes.reports import router as reports
 
 api_router = APIRouter()
@@ -14,4 +15,5 @@ api_router.include_router(geometry)
 api_router.include_router(layouts)
 api_router.include_router(rulesets)
 api_router.include_router(analysis)
+api_router.include_router(shading_ai)
 api_router.include_router(reports)
