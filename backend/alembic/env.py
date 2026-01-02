@@ -15,6 +15,11 @@ from app.db import models  # noqa: F401
 config = context.config
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
+    # Convert postgresql:// to postgresql+psycopg:// for psycopg3 driver
+    if DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+    elif DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
     config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 target_metadata = Base.metadata
