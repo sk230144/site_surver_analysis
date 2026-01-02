@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "../../../lib/api";
+import { apiGet, apiPost, API } from "../../../lib/api";
 
 type Project = { id: number; name: string; address?: string | null; status: string };
 type Asset = { id: number; project_id: number; kind: string; filename: string; content_type?: string | null; storage_url: string; meta: any };
@@ -78,7 +78,7 @@ export default function ProjectDetailPage() {
       formData.append("kind", kind);
       formData.append("file", file);
 
-      const res = await fetch(`http://localhost:8000/projects/${id}/assets/upload`, {
+      const res = await fetch(`${API}/projects/${id}/assets/upload`, {
         method: "POST",
         body: formData,
       });

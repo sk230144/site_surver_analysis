@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import 'leaflet-draw';
+import { API } from '../../../../lib/api';
 
 // Fix Leaflet default icon issue with webpack
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -172,7 +173,7 @@ export default function SurveyorMapEditor({
   // Load uploaded image from server when project data is available
   useEffect(() => {
     if (project?.uploaded_image_url && !uploadedImage) {
-      const imageUrl = `http://localhost:8000${project.uploaded_image_url}`;
+      const imageUrl = `${API}${project.uploaded_image_url}`;
       setUploadedImage(imageUrl);
       setImageSource('uploaded');
     }
@@ -527,7 +528,7 @@ export default function SurveyorMapEditor({
 
     // Persist view mode preference to backend
     try {
-      await fetch(`http://localhost:8000/projects/${projectId}/view-mode?view_mode=${source}`, {
+      await fetch(`${API}/projects/${projectId}/view-mode?view_mode=${source}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -685,7 +686,7 @@ export default function SurveyorMapEditor({
     formData.append('file', file);
 
     try {
-      const response = await fetch(`http://localhost:8000/projects/${projectId}/upload-image`, {
+      const response = await fetch(`${API}/projects/${projectId}/upload-image`, {
         method: 'POST',
         body: formData,
       });
@@ -695,7 +696,7 @@ export default function SurveyorMapEditor({
       }
 
       const data = await response.json();
-      const serverImageUrl = `http://localhost:8000${data.image_url}`;
+      const serverImageUrl = `${API}${data.image_url}`;
 
       // Also create local preview for immediate display
       const reader = new FileReader();
