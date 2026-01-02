@@ -103,17 +103,17 @@ export default function ProjectDetailPage() {
   });
 
   const deleteReport = useMutation({
-    mutationFn: (reportId: number) => fetch(`http://localhost:8000/reports/${reportId}`, { method: "DELETE" }).then(res => res.json()),
+    mutationFn: (reportId: number) => fetch(`${API}/reports/${reportId}`, { method: "DELETE" }).then(res => res.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reports", id] }),
   });
 
   const deleteAnalysis = useMutation({
-    mutationFn: (analysisId: number) => fetch(`http://localhost:8000/analysis/${analysisId}`, { method: "DELETE" }).then(res => res.json()),
+    mutationFn: (analysisId: number) => fetch(`${API}/analysis/${analysisId}`, { method: "DELETE" }).then(res => res.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["analysis", id] }),
   });
 
   const deleteAsset = useMutation({
-    mutationFn: (assetId: number) => fetch(`http://localhost:8000/assets/${assetId}`, { method: "DELETE" }).then(res => res.json()),
+    mutationFn: (assetId: number) => fetch(`${API}/assets/${assetId}`, { method: "DELETE" }).then(res => res.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["assets", id] }),
   });
 
@@ -132,7 +132,7 @@ export default function ProjectDetailPage() {
       // Add survey data as JSON
       formData.append('survey_data', JSON.stringify(roofSurveyData));
 
-      const res = await fetch(`http://localhost:8000/projects/${id}/analysis/roof_risk/run_with_data`, {
+      const res = await fetch(`${API}/projects/${id}/analysis/roof_risk/run_with_data`, {
         method: "POST",
         body: formData,
       });
@@ -175,7 +175,7 @@ export default function ProjectDetailPage() {
       // Add electrical data as JSON
       formData.append('electrical_data', JSON.stringify(electricalData));
 
-      const res = await fetch(`http://localhost:8000/projects/${id}/analysis/electrical/run_with_data`, {
+      const res = await fetch(`${API}/projects/${id}/analysis/electrical/run_with_data`, {
         method: "POST",
         body: formData,
       });
@@ -1010,7 +1010,7 @@ export default function ProjectDetailPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   {a.content_type?.startsWith('image/') ? (
                     <img
-                      src={`http://localhost:8000${a.storage_url}`}
+                      src={`${API}${a.storage_url}`}
                       alt={a.filename}
                       style={{
                         width: '80px',
@@ -1044,7 +1044,7 @@ export default function ProjectDetailPage() {
                     </div>
                     <div className="asset-url">
                       <a
-                        href={`http://localhost:8000${a.storage_url}`}
+                        href={`${API}${a.storage_url}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}
@@ -1548,7 +1548,7 @@ export default function ProjectDetailPage() {
               </button>
             </div>
             <iframe
-              src={viewingPdfUrl.replace('file://', 'http://localhost:8000/').replace('reports_out', 'reports_files').replace(/\\/g, '/')}
+              src={viewingPdfUrl.replace('file://', `${API}/`).replace('reports_out', 'reports_files').replace(/\\/g, '/')}
               className="pdf-viewer-iframe"
               title="PDF Report"
             />
