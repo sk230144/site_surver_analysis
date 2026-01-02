@@ -85,34 +85,45 @@ def analyze_plane_shading(roof_plane, obstructions):
                 distance = roof_centroid.distance(obs_centroid)
 
                 # Calculate relative distance based on roof size
-                # Use 10x roof diagonal as threshold (handles both real-world meters and pixel coordinates)
                 roof_bounds = roof_geom.bounds  # (minx, miny, maxx, maxy)
                 roof_diagonal = ((roof_bounds[2] - roof_bounds[0])**2 + (roof_bounds[3] - roof_bounds[1])**2)**0.5
-                distance_threshold = max(50, roof_diagonal * 10)  # At least 50m, or 10x roof size
 
-                # Skip if obstruction is very far
-                if distance > distance_threshold:
+                # Normalize distance relative to roof size to handle pixel coordinates
+                # This makes distance meaningful regardless of coordinate system scale
+                normalized_distance = distance / roof_diagonal if roof_diagonal > 0 else distance
+
+                # Skip if obstruction is very far (>10x roof diagonal)
+                if normalized_distance > 10:
                     continue
 
-                # Calculate shading impact score
-                # Formula: higher obstructions closer to roof = more impact
-                # Impact decreases with distance (inverse square-ish)
-                if distance < 0.1:  # Avoid division by zero
-                    distance = 0.1
+                # Check if obstruction overlaps or intersects roof
+                is_overlapping = roof_geom.intersects(obs_geom)
 
-                # Height factor: taller obstructions block more sun
-                height_factor = min(obs_height / 10.0, 1.0)  # Cap at 10m reference
+                # Calculate shading impact score using NORMALIZED distance
+                # This works for both real-world meters and pixel coordinates
 
-                # Distance factor: closer = more impact
-                distance_factor = 1.0 / (1.0 + distance / 10.0)
-
-                # Combined impact (0-100 scale)
-                impact_score = height_factor * distance_factor * 100.0
-
-                # Check if obstruction overlaps or is very close to roof
-                if roof_geom.intersects(obs_geom) or distance < 2.0:
-                    impact_score *= 1.5  # Heavy penalty for very close/overlapping
-                    result["notes"].append(f"⚠️  {obs['type']} very close or overlapping roof plane")
+                if is_overlapping:
+                    # Direct overlap = MAXIMUM impact
+                    # Height factor determines severity
+                    height_factor = min(obs_height / 10.0, 1.0)  # 12m tree = 1.0 factor
+                    impact_score = 80.0 + (height_factor * 20.0)  # 80-100 range for overlaps
+                    result["notes"].append(f"⚠️  {obs['type']} directly overlaps roof plane - HIGH SHADING RISK")
+                elif normalized_distance < 0.5:
+                    # Very close (within 0.5x roof diagonal)
+                    height_factor = min(obs_height / 10.0, 1.0)
+                    distance_penalty = (0.5 - normalized_distance) / 0.5  # 1.0 at distance 0, 0.0 at 0.5
+                    impact_score = (40.0 + height_factor * 40.0) * distance_penalty
+                    result["notes"].append(f"⚠️  {obs['type']} very close to roof plane")
+                elif normalized_distance < 2.0:
+                    # Moderate distance (0.5x to 2x roof diagonal)
+                    height_factor = min(obs_height / 10.0, 1.0)
+                    distance_penalty = (2.0 - normalized_distance) / 1.5
+                    impact_score = (20.0 + height_factor * 30.0) * distance_penalty
+                else:
+                    # Far but within threshold (2x to 10x roof diagonal)
+                    height_factor = min(obs_height / 10.0, 1.0)
+                    distance_penalty = (10.0 - normalized_distance) / 8.0
+                    impact_score = (10.0 + height_factor * 20.0) * distance_penalty
 
                 total_impact_score += impact_score
 
@@ -123,7 +134,8 @@ def analyze_plane_shading(roof_plane, obstructions):
                         "id": obs["id"],
                         "type": obs["type"],
                         "height_m": obs_height,
-                        "distance_m": round(distance, 2),
+                        "normalized_distance": round(normalized_distance, 2),
+                        "distance_description": "overlapping" if is_overlapping else f"{normalized_distance:.1f}x roof diagonal",
                         "impact_score": round(impact_score, 2)
                     }
 
@@ -131,7 +143,8 @@ def analyze_plane_shading(roof_plane, obstructions):
                 result["obstruction_impacts"].append({
                     "obstruction_id": obs["id"],
                     "type": obs["type"],
-                    "distance_m": round(distance, 2),
+                    "normalized_distance": round(normalized_distance, 2),
+                    "distance_description": "overlapping" if is_overlapping else f"{normalized_distance:.1f}x roof diagonal",
                     "height_m": obs_height,
                     "impact_score": round(impact_score, 2)
                 })
