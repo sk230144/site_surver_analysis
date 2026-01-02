@@ -4,12 +4,15 @@ import Providers from "./providers";
 
 export const metadata = {
   title: "Solar AI Platform",
-  description: "Starter scaffold",
+  description: "AI-powered solar project design and analysis platform",
   viewport: {
     width: "device-width",
     initialScale: 1,
     maximumScale: 1,
     userScalable: false,
+  },
+  icons: {
+    icon: '/favicon.svg',
   },
 };
 

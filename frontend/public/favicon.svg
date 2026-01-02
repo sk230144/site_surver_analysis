@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background Circle -->
+  <circle cx="50" cy="50" r="48" fill="url(#sunGradient)"/>
+
+  <!-- Sun Gradient -->
+  <defs>
+    <radialGradient id="sunGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+
+  <!-- Sun Rays -->
+  <g fill="#f59e0b" opacity="0.8">
+    <circle cx="50" cy="10" r="3"/>
+    <circle cx="75" cy="18" r="3"/>
+    <circle cx="90" cy="50" r="3"/>
+    <circle cx="75" cy="82" r="3"/>
+    <circle cx="50" cy="90" r="3"/>
+    <circle cx="25" cy="82" r="3"/>
+    <circle cx="10" cy="50" r="3"/>
+    <circle cx="25" cy="18" r="3"/>
+  </g>
+
+  <!-- Inner Sun Core -->
+  <circle cx="50" cy="50" r="20" fill="#fff" opacity="0.9"/>
+
+  <!-- Lightning Bolt -->
+  <path d="M 50 35 L 45 50 L 52 50 L 47 65 L 58 47 L 50 47 Z" fill="#fbbf24"/>
+</svg>
