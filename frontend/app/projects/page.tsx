@@ -40,7 +40,7 @@ export default function ProjectsPage() {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
       return apiGet<PaginatedResponse>(`/projects?page=${currentPage}&limit=${ITEMS_PER_PAGE}${searchParam}`);
     },
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 
   // Handle search with debounce effect
