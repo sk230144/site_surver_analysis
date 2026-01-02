@@ -506,7 +506,7 @@ export default function SurveyorMapEditor({
             weight: 2,
           },
         },
-        marker: mode === 'obstruction',
+        marker: mode === 'obstruction' ? {} : false,
         polyline: false,
         rectangle: false,
         circle: false,
