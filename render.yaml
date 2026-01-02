@@ -35,6 +35,6 @@ services:
       - key: APP_ENV
         value: production
       - key: CORS_ORIGINS
-        value: https://your-frontend.vercel.app,http://localhost:3000
+        value: https://site-surver-analysis.vercel.app,http://localhost:3000
       - key: GEMINI_API_KEY
         sync: false
