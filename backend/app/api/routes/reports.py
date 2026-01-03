@@ -21,20 +21,49 @@ def list_reports(project_id: int, db: Session = Depends(get_db)):
 @router.post("/projects/{project_id}/reports/generate", response_model=ReportOut)
 def generate_report(project_id: int, db: Session = Depends(get_db)):
     """Trigger report generation for a project"""
-    if not db.get(Project, project_id):
+    proj = db.get(Project, project_id)
+    if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    rep = Report(project_id=project_id, status="queued", meta={}, storage_url=None)
+    rep = Report(project_id=project_id, status="running", meta={}, storage_url=None)
     db.add(rep)
     db.commit()
     db.refresh(rep)
 
-    # Optional: enqueue Celery job (works without worker)
+    # GENERATE PDF SYNCHRONOUSLY (works on free tier hosting without background workers)
     try:
-        from app.worker import enqueue_report
-        enqueue_report(rep.id, project_id)
-    except Exception:
-        pass  # Continue even if worker not available
+        from app.db.models import Asset, AnalysisResult
+        from app.services.reports import build_minimal_report
+
+        # Fetch all data needed for report
+        assets = db.execute(select(Asset).where(Asset.project_id == project_id)).scalars().all()
+        analyses = db.execute(select(AnalysisResult).where(AnalysisResult.project_id == project_id)).scalars().all()
+
+        # Generate PDF
+        pdf_bytes = build_minimal_report(
+            project={"id": proj.id, "name": proj.name, "address": proj.address},
+            assets=[{"kind": a.kind, "filename": a.filename, "storage_url": a.storage_url, "content_type": a.content_type} for a in assets],
+            analyses=[{"kind": r.kind, "status": r.status, "result": r.result} for r in analyses],
+        )
+
+        # Save PDF to disk
+        os.makedirs("reports_out", exist_ok=True)
+        out_path = os.path.join("reports_out", f"project_{project_id}_report_{rep.id}.pdf")
+        with open(out_path, "wb") as f:
+            f.write(pdf_bytes)
+
+        # Update report status
+        rep.storage_url = f"file://{out_path}"
+        rep.status = "done"
+        db.commit()
+        db.refresh(rep)
+
+    except Exception as e:
+        rep.status = "failed"
+        rep.meta = {"error": str(e)}
+        db.commit()
+        db.refresh(rep)
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
     return rep
 

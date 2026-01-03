@@ -23,10 +23,59 @@ def list_analysis(project_id: int, db: Session = Depends(get_db)):
         .order_by(AnalysisResult.id.desc())
     ).scalars().all())
 
+@router.post("/projects/{project_id}/analysis/shading/run_with_screenshot", response_model=AnalysisOut)
+async def run_shading_with_screenshot(
+    project_id: int,
+    geometry_screenshot: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Run shading analysis with optional geometry screenshot for AI enhancement.
+
+    If geometry_screenshot is provided, saves it as an asset and uses it for hybrid AI+math analysis.
+    """
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Save geometry screenshot if provided
+    geometry_asset = None
+    if geometry_screenshot:
+        try:
+            upload_dir = f"storage/uploads/project_{project_id}"
+            os.makedirs(upload_dir, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"geometry_{timestamp}_{geometry_screenshot.filename}"
+            file_path = os.path.join(upload_dir, filename)
+
+            # Save file
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(geometry_screenshot.file, buffer)
+
+            # Create asset record
+            geometry_asset = Asset(
+                project_id=project_id,
+                kind="geometry_screenshot",
+                storage_url=f"/{file_path}",
+                metadata={"timestamp": timestamp}
+            )
+            db.add(geometry_asset)
+            db.commit()
+            db.refresh(geometry_asset)
+        except Exception as e:
+            # Continue without geometry screenshot if upload fails
+            pass
+
+    # Now run the shading analysis (it will find the geometry_screenshot we just created)
+    return run_analysis(project_id, "shading", db)
+
+
 @router.post("/projects/{project_id}/analysis/{kind}/run", response_model=AnalysisOut)
 def run_analysis(project_id: int, kind: str, db: Session = Depends(get_db)):
     """Trigger analysis run for a specific kind"""
-    if not db.get(Project, project_id):
+    project = db.get(Project, project_id)
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     if kind not in VALID_ANALYSIS_KINDS:
@@ -67,55 +116,38 @@ def run_analysis(project_id: int, kind: str, db: Session = Depends(get_db)):
         )
 
         # Try to enhance with AI analysis if possible
-        # Check if there's a recent geometry image we can analyze
-        from app.db.models import Asset as AssetModel
-        import os
+        # NEW: Run AI analysis using geometry data (no screenshot needed!)
         from app.core.config import settings
 
-        # Look for most recent geometry screenshot asset
-        geometry_assets = db.execute(
-            select(AssetModel)
-            .where(AssetModel.project_id == project_id)
-            .where(AssetModel.kind == "geometry_screenshot")
-            .order_by(AssetModel.created_at.desc())
-            .limit(1)
-        ).scalar()
-
         ai_result = None
-        if geometry_assets and settings.GEMINI_API_KEY:
-            # Found a geometry screenshot - use AI to enhance analysis
+
+        if settings.GEMINI_API_KEY and len(planes) > 0 and len(obs) > 0:
+            # Use NEW geometry-only AI analysis
             try:
-                from app.services.gemini_vision import analyze_shading_with_gemini
-                import os
+                from app.services.gemini_vision import analyze_shading_from_geometry_data
 
-                # Get the image file path
-                geometry_image_path = geometry_assets.storage_url.lstrip('/')
-                full_path = os.path.join(os.getcwd(), geometry_image_path)
+                roof_planes_data = [{
+                    "id": p.id,
+                    "name": p.name,
+                    "tilt_deg": p.tilt_deg,
+                    "azimuth_deg": p.azimuth_deg
+                } for p in planes]
 
-                if os.path.exists(full_path):
-                    roof_planes_data = [{
-                        "id": p.id,
-                        "name": p.name,
-                        "tilt_deg": p.tilt_deg,
-                        "azimuth_deg": p.azimuth_deg
-                    } for p in planes]
+                obstructions_data = [{
+                    "id": o.id,
+                    "type": o.type,
+                    "height_m": o.height_m
+                } for o in obs]
 
-                    obstructions_data = [{
-                        "id": o.id,
-                        "type": o.type,
-                        "height_m": o.height_m
-                    } for o in obs]
+                latitude = getattr(project, 'latitude', None)
+                longitude = getattr(project, 'longitude', None)
 
-                    latitude = getattr(project, 'latitude', None)
-                    longitude = getattr(project, 'longitude', None)
-
-                    ai_result = analyze_shading_with_gemini(
-                        full_path,
-                        roof_planes_data,
-                        obstructions_data,
-                        latitude,
-                        longitude
-                    )
+                ai_result = analyze_shading_from_geometry_data(
+                    roof_planes_data,
+                    obstructions_data,
+                    latitude,
+                    longitude
+                )
             except Exception as e:
                 # AI failed, continue with math-only result
                 math_result["ai_enhancement_error"] = str(e)

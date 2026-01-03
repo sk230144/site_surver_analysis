@@ -249,6 +249,189 @@ export default function ProjectDetailPage() {
   const renderShadingResult = (result: any) => {
     if (!result || Object.keys(result).length === 0) return null;
 
+    // NEW: Check if this is hybrid AI+Math analysis
+    const isHybrid = result.analysis_method === 'hybrid_math_ai';
+
+    if (isHybrid) {
+      // User-Friendly Display (no technical jargon!)
+      const shadingScore = result.hybrid_shade_risk_score || 0;
+      const findings = result.ai_analysis?.findings || [];
+      const timeOfDay = result.ai_analysis?.time_of_day_impact || {};
+      const seasonal = result.ai_analysis?.seasonal_impact || {};
+      const recommendations = result.ai_analysis?.recommendations || [];
+      const assessment = result.final_assessment || {};
+      const energyLoss = assessment.estimated_annual_loss_percent || 0;
+
+      // Determine shading level in simple language
+      const shadingLevel = shadingScore > 70 ? 'High' : shadingScore > 40 ? 'Moderate' : 'Low';
+      const shadingColor = shadingScore > 70 ? '#ef4444' : shadingScore > 40 ? '#f59e0b' : '#10b981';
+      const shadingIcon = shadingScore > 70 ? '🔴' : shadingScore > 40 ? '🟡' : '🟢';
+
+      return (
+        <div style={{
+          marginTop: '0.75rem',
+          padding: '0.75rem',
+          background: 'var(--bg-tertiary)',
+          borderRadius: '0.5rem',
+          fontSize: '0.9rem'
+        }}>
+          {/* Main Summary - Simple and Clear */}
+          <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.75rem',
+              background: `${shadingColor}15`,
+              borderRadius: '0.5rem',
+              border: `2px solid ${shadingColor}30`
+            }}>
+              <span style={{ fontWeight: 600, fontSize: '1rem' }}>☀️ Shading Impact:</span>
+              <span style={{
+                fontWeight: 700,
+                fontSize: '1.2rem',
+                color: shadingColor
+              }}>
+                {shadingIcon} {shadingLevel}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '0.25rem' }}>
+              <span>📉 Expected Energy Loss:</span>
+              <span style={{ fontWeight: 600, color: energyLoss > 15 ? '#ef4444' : energyLoss > 8 ? '#f59e0b' : '#10b981' }}>
+                {energyLoss}% per year
+              </span>
+            </div>
+
+            {assessment.dominant_obstruction && (
+              <div style={{ padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '0.25rem' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  <strong>Main Issue:</strong> {assessment.dominant_obstruction.type || 'Obstruction'} causing shadows {assessment.dominant_obstruction.primary_impact_time === 'morning_and_afternoon' ? 'in morning and afternoon' : assessment.dominant_obstruction.primary_impact_time === 'midday' ? 'during peak sun hours' : 'throughout the day'}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* What We Found - Plain Language */}
+          {findings.length > 0 && (
+            <div style={{ marginTop: '0.75rem', padding: '0.6rem', background: 'var(--bg-secondary)', borderRadius: '0.25rem' }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>📋 What We Found:</div>
+              {findings.slice(0, 2).map((finding: string, idx: number) => (
+                <div key={idx} style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.3rem', paddingLeft: '0.5rem', lineHeight: '1.4' }}>
+                  • {finding}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* When Shadows Affect Your Panels */}
+          {Object.keys(timeOfDay).length > 0 && (
+            <div style={{ marginTop: '0.6rem', padding: '0.6rem', background: 'var(--bg-secondary)', borderRadius: '0.25rem' }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>🕐 When Shadows Affect Your Panels:</div>
+              <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                {timeOfDay.morning_6_9am && (
+                  <span style={{
+                    padding: '0.3rem 0.6rem',
+                    background: timeOfDay.morning_6_9am === 'high' ? '#ef444420' : timeOfDay.morning_6_9am === 'medium' ? '#f59e0b20' : timeOfDay.morning_6_9am === 'low' ? '#10b98120' : '#94a3b820',
+                    borderRadius: '0.3rem',
+                    fontWeight: 500
+                  }}>
+                    🌅 Morning (6-9 AM): {timeOfDay.morning_6_9am === 'high' ? 'Heavy shade' : timeOfDay.morning_6_9am === 'medium' ? 'Some shade' : timeOfDay.morning_6_9am === 'low' ? 'Light shade' : 'No shade'}
+                  </span>
+                )}
+                {timeOfDay.midday_9am_3pm && (
+                  <span style={{
+                    padding: '0.3rem 0.6rem',
+                    background: timeOfDay.midday_9am_3pm === 'high' ? '#ef444420' : timeOfDay.midday_9am_3pm === 'medium' ? '#f59e0b20' : timeOfDay.midday_9am_3pm === 'low' ? '#10b98120' : '#94a3b820',
+                    borderRadius: '0.3rem',
+                    fontWeight: 500
+                  }}>
+                    ☀️ Peak Hours (9 AM-3 PM): {timeOfDay.midday_9am_3pm === 'high' ? 'Heavy shade' : timeOfDay.midday_9am_3pm === 'medium' ? 'Some shade' : timeOfDay.midday_9am_3pm === 'low' ? 'Light shade' : 'No shade'}
+                  </span>
+                )}
+                {timeOfDay.afternoon_3_6pm && (
+                  <span style={{
+                    padding: '0.3rem 0.6rem',
+                    background: timeOfDay.afternoon_3_6pm === 'high' ? '#ef444420' : timeOfDay.afternoon_3_6pm === 'medium' ? '#f59e0b20' : timeOfDay.afternoon_3_6pm === 'low' ? '#10b98120' : '#94a3b820',
+                    borderRadius: '0.3rem',
+                    fontWeight: 500
+                  }}>
+                    🌇 Afternoon (3-6 PM): {timeOfDay.afternoon_3_6pm === 'high' ? 'Heavy shade' : timeOfDay.afternoon_3_6pm === 'medium' ? 'Some shade' : timeOfDay.afternoon_3_6pm === 'low' ? 'Light shade' : 'No shade'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Throughout the Year */}
+          {Object.keys(seasonal).length > 0 && (
+            <div style={{ marginTop: '0.6rem', padding: '0.6rem', background: 'var(--bg-secondary)', borderRadius: '0.25rem' }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>📅 Throughout the Year:</div>
+              <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem' }}>
+                {seasonal.summer && (
+                  <span style={{
+                    padding: '0.3rem 0.6rem',
+                    background: seasonal.summer === 'high' ? '#ef444420' : seasonal.summer === 'medium' ? '#f59e0b20' : seasonal.summer === 'low' ? '#10b98120' : '#94a3b820',
+                    borderRadius: '0.3rem',
+                    fontWeight: 500,
+                    flex: 1,
+                    textAlign: 'center'
+                  }}>
+                    ☀️ Summer: {seasonal.summer === 'high' ? 'Heavy shading' : seasonal.summer === 'medium' ? 'Moderate shading' : seasonal.summer === 'low' ? 'Light shading' : 'No shading'}
+                  </span>
+                )}
+                {seasonal.winter && (
+                  <span style={{
+                    padding: '0.3rem 0.6rem',
+                    background: seasonal.winter === 'high' ? '#ef444420' : seasonal.winter === 'medium' ? '#f59e0b20' : seasonal.winter === 'low' ? '#10b98120' : '#94a3b820',
+                    borderRadius: '0.3rem',
+                    fontWeight: 500,
+                    flex: 1,
+                    textAlign: 'center'
+                  }}>
+                    ❄️ Winter: {seasonal.winter === 'high' ? 'Heavy shading' : seasonal.winter === 'medium' ? 'Moderate shading' : seasonal.winter === 'low' ? 'Light shading' : 'No shading'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* What You Should Do */}
+          {recommendations.length > 0 && (
+            <div style={{
+              marginTop: '0.75rem',
+              padding: '0.6rem',
+              background: shadingScore > 50 ? '#ef444410' : '#3b82f610',
+              borderLeft: `4px solid ${shadingScore > 50 ? '#ef4444' : '#3b82f6'}`,
+              borderRadius: '0.25rem'
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>
+                {shadingScore > 50 ? '⚠️ What You Should Do:' : '💡 Our Recommendations:'}
+              </div>
+              {recommendations.slice(0, 2).map((rec: string, idx: number) => (
+                <div key={idx} style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.3rem', paddingLeft: '0.5rem', lineHeight: '1.4' }}>
+                  • {rec}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{
+            marginTop: '0.6rem',
+            padding: '0.5rem',
+            background: 'var(--bg-secondary)',
+            borderRadius: '0.25rem',
+            fontSize: '0.8rem',
+            color: 'var(--text-muted)',
+            textAlign: 'center'
+          }}>
+            📄 Complete analysis with detailed breakdown available in PDF report
+          </div>
+        </div>
+      );
+    }
+
+    // Legacy format handling
     const planes = result.planes || [];
 
     // Detect if this is advanced analysis (has annual_energy_loss_percent)
@@ -1202,9 +1385,44 @@ export default function ProjectDetailPage() {
           <div className="divider"></div>
 
           <h4 className="section-title">Reports</h4>
-          <button className="btn" onClick={() => genReport.mutate()} disabled={genReport.isPending}>
-            {genReport.isPending ? "Generating..." : "📊 Generate Report"}
-          </button>
+          {(() => {
+            // Check if any analysis is running
+            const hasRunningAnalysis = analysisQ.data?.some(a => a.status === "queued" || a.status === "running");
+            const isDisabled = genReport.isPending || hasRunningAnalysis;
+
+            return (
+              <button
+                className="btn"
+                onClick={() => genReport.mutate()}
+                disabled={isDisabled}
+                style={{
+                  opacity: isDisabled ? 0.6 : 1,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  position: 'relative'
+                }}
+              >
+                {genReport.isPending && (
+                  <span style={{ marginRight: '0.5rem' }}>
+                    <span className="spinner" style={{
+                      display: 'inline-block',
+                      width: '14px',
+                      height: '14px',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderTopColor: '#fff',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite',
+                      verticalAlign: 'middle'
+                    }}></span>
+                  </span>
+                )}
+                {genReport.isPending
+                  ? "Generating Report..."
+                  : hasRunningAnalysis
+                    ? "⏳ Waiting for analyses..."
+                    : "📊 Generate Report"}
+              </button>
+            );
+          })()}
 
           {reportsQ.isLoading && <p className="loading-text">Loading reports...</p>}
 
@@ -1736,6 +1954,14 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Spinner animation for loading states */}
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </main>
   );
 }

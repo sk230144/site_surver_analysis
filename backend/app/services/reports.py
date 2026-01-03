@@ -157,184 +157,402 @@ def build_minimal_report(project, assets, analyses) -> bytes:
         if kind == "shading" and status == "done" and result:
             c.setFont("Helvetica", 10)
 
-            # Overall summary
-            avg_risk = result.get('average_shade_risk', 0)
-            total_planes = result.get('total_roof_planes', 0)
-            total_obs = result.get('total_obstructions', 0)
+            # Helper function to remove emojis from text for PDF (define early)
+            import re
+            def remove_emojis(text):
+                if isinstance(text, str):
+                    # Remove all emojis and other non-ASCII characters
+                    return re.sub(r'[^\x00-\x7F]+', '', text).strip()
+                return text
 
-            c.drawString(60, y, f"Summary: {total_planes} roof plane(s), {total_obs} obstruction(s)")
-            y -= 14
+            # Recursively clean all strings in the result to remove emojis
+            def clean_dict(obj):
+                if isinstance(obj, dict):
+                    return {k: clean_dict(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [clean_dict(item) for item in obj]
+                elif isinstance(obj, str):
+                    return remove_emojis(obj)
+                return obj
 
-            # Check if using advanced analysis (has annual_energy_loss_percent in planes)
-            planes = result.get('planes', [])
-            is_advanced = any(plane.get('annual_energy_loss_percent') is not None for plane in planes)
+            # Clean the entire result to remove all emojis
+            result = clean_dict(result)
 
-            if is_advanced:
-                # Show overall shading level for advanced analysis
-                avg_loss = result.get('average_annual_energy_loss', 0)
-                overall_level = "High" if avg_loss > 15 else "Medium" if avg_loss > 5 else "Low"
-                c.setFont("Helvetica-Bold", 10)
-                c.drawString(60, y, "Overall Shading Level: ")
-                c.setFillColorRGB(0.8, 0, 0) if avg_loss > 15 else c.setFillColorRGB(0.9, 0.5, 0) if avg_loss > 5 else c.setFillColorRGB(0, 0.6, 0)
-                c.drawString(180, y, f"{overall_level}")
+            # Check if this is hybrid AI+Math analysis
+            analysis_method = result.get('analysis_method')
+
+            # DEBUG: Write to file to check what's happening
+            import datetime
+            with open("pdf_debug.log", "a") as f:
+                f.write(f"\n{datetime.datetime.now()}: PDF Generation Debug\n")
+                f.write(f"  analysis_method = {analysis_method}\n")
+                f.write(f"  result keys = {list(result.keys())}\n")
+
+            is_hybrid = analysis_method == 'hybrid_math_ai'
+
+            with open("pdf_debug.log", "a") as f:
+                f.write(f"  is_hybrid = {is_hybrid}\n")
+
+            if is_hybrid:
+                # USER-FRIENDLY HYBRID ANALYSIS DISPLAY
+                shading_score = result.get('hybrid_shade_risk_score', 0)
+                findings = result.get('ai_analysis', {}).get('findings', [])
+                time_of_day = result.get('ai_analysis', {}).get('time_of_day_impact', {})
+                seasonal = result.get('ai_analysis', {}).get('seasonal_impact', {})
+                recommendations = result.get('ai_analysis', {}).get('recommendations', [])
+                assessment = result.get('final_assessment', {})
+                energy_loss = assessment.get('estimated_annual_loss_percent', 0)
+                dominant_obs = assessment.get('dominant_obstruction', {})
+
+                # Determine shading level in simple language
+                shading_level = "High" if shading_score > 70 else "Moderate" if shading_score > 40 else "Low"
+                shading_color = (0.8, 0, 0) if shading_score > 70 else (0.9, 0.5, 0) if shading_score > 40 else (0, 0.6, 0)
+                shading_icon = "!" if shading_score > 70 else "~" if shading_score > 40 else "✓"
+
+                # Main Summary Box
+                c.setFont("Helvetica-Bold", 12)
+                c.setFillColorRGB(*shading_color)
+                c.drawString(60, y, f"{shading_icon} Shading Impact: {shading_level}")
                 c.setFillColorRGB(0, 0, 0)
-                c.setFont("Helvetica", 9)
-                c.drawString(220, y, f"(Avg {avg_loss}% loss)")
-                y -= 18
-            elif not is_advanced and avg_risk:
-                c.drawString(60, y, f"Average Shade Risk Score: {avg_risk}/100")
                 y -= 18
 
-            # Per-plane results
-            for plane in planes[:5]:  # Show up to 5 planes
-                if y < 100:
-                    c.showPage()
-                    y = height - 50
+                # Expected Energy Loss
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(60, y, "Expected Energy Loss:")
+                loss_color = (0.8, 0, 0) if energy_loss > 15 else (0.9, 0.5, 0) if energy_loss > 8 else (0, 0.6, 0)
+                c.setFillColorRGB(*loss_color)
+                c.setFont("Helvetica-Bold", 11)
+                c.drawString(180, y, f"{energy_loss}% per year")
+                c.setFillColorRGB(0, 0, 0)
+                y -= 18
 
-                plane_name = plane.get('plane_name', 'Unnamed')
-
-                # Advanced analysis output
-                if plane.get('annual_energy_loss_percent') is not None:
-                    c.setFont("Helvetica-Bold", 11)
-                    c.drawString(70, y, f"• {plane_name}")
-                    y -= 15
-
-                    # Key metrics
-                    annual_loss = plane.get('annual_energy_loss_percent', 0)
-                    peak_loss = plane.get('peak_hours_loss_percent', 0)
-                    annual_prod = plane.get('annual_production_kwh_m2', 0)
-                    potential_prod = plane.get('potential_production_kwh_m2', 0)
-
-                    # Determine shading level and production quality
-                    shading_level = "High" if annual_loss > 15 else "Medium" if annual_loss > 5 else "Low"
-                    production_ratio = annual_prod / potential_prod if potential_prod > 0 else 0
-                    production_quality = "Excellent" if production_ratio > 0.95 else "Good" if production_ratio > 0.85 else "Average" if production_ratio > 0.70 else "Poor"
-
-                    # Shading Level with color
-                    c.setFont("Helvetica-Bold", 9)
-                    c.drawString(85, y, "Shading Level: ")
-                    c.setFillColorRGB(0.8, 0, 0) if annual_loss > 15 else c.setFillColorRGB(0.9, 0.5, 0) if annual_loss > 5 else c.setFillColorRGB(0, 0.6, 0)
-                    c.drawString(160, y, f"{shading_level}")
-                    c.setFillColorRGB(0, 0, 0)
-                    c.setFont("Helvetica", 8)
-                    c.drawString(200, y, f"({annual_loss}% annual loss)")
-                    y -= 12
-
-                    # Production Quality
-                    c.setFont("Helvetica-Bold", 9)
-                    c.drawString(85, y, "Expected Production: ")
-                    prod_color = (0, 0.6, 0) if production_ratio > 0.95 else (0.2, 0.4, 0.8) if production_ratio > 0.85 else (0.9, 0.5, 0) if production_ratio > 0.70 else (0.8, 0, 0)
-                    c.setFillColorRGB(*prod_color)
-                    c.drawString(180, y, f"{production_quality}")
-                    c.setFillColorRGB(0, 0, 0)
-                    y -= 11
-
+                # Main Issue (Dominant Obstruction)
+                if dominant_obs:
                     c.setFont("Helvetica", 9)
-                    c.drawString(85, y, f"Power loss during strongest sunlight hours (10AM-4PM): {peak_loss}%")
-                    y -= 13
+                    obs_type = dominant_obs.get('type', 'Obstruction')
+                    impact_time = dominant_obs.get('primary_impact_time', '')
+                    impact_desc = ""
+                    if impact_time == 'morning_and_afternoon':
+                        impact_desc = "in morning and afternoon"
+                    elif impact_time == 'midday':
+                        impact_desc = "during peak sun hours"
+                    else:
+                        impact_desc = "throughout the day"
+                    c.setFillColorRGB(0.4, 0.4, 0.4)
+                    c.drawString(60, y, f"Main Issue: {obs_type} causing shadows {impact_desc}")
+                    c.setFillColorRGB(0, 0, 0)
+                    y -= 16
 
-                    # Worst shading moment
-                    worst = plane.get('worst_shading_moment')
-                    if worst and worst.get('timestamp'):
-                        c.setFillColorRGB(0.4, 0, 0)
-                        c.drawString(85, y, f"⚠ Worst: {worst.get('timestamp')} - {worst.get('shaded_percent', 0):.1f}% shaded")
-                        c.setFillColorRGB(0, 0, 0)
-                        y -= 11
+                y -= 8
 
-                    # Best production moment
-                    best = plane.get('best_production_moment')
-                    if best and best.get('timestamp'):
-                        c.setFillColorRGB(0, 0.4, 0)
-                        c.drawString(85, y, f"✓ Best: {best.get('timestamp')} - {best.get('irradiance_w_m2', 0):.0f} W/m²")
-                        c.setFillColorRGB(0, 0, 0)
-                        y -= 13
-
-                    # Recommendations
-                    recommendations = plane.get('recommendations', [])
-                    if recommendations:
-                        c.setFont("Helvetica-Bold", 9)
-                        c.drawString(85, y, "Recommendations:")
-                        y -= 11
-                        c.setFont("Helvetica", 8)
-                        for rec in recommendations[:3]:  # Show up to 3 recommendations
-                            if y < 50:
-                                c.showPage()
-                                y = height - 50
-                            # Remove emoji for cleaner PDF
-                            rec_text = rec.replace('✓', '').replace('⚠️', '').replace('❌', '').replace('📊', '').strip()
-                            c.drawString(95, y, f"• {rec_text[:70]}")
-                            y -= 10
-
-                    y -= 8  # Extra spacing between planes
-
-                # Simple/legacy analysis output
-                else:
-                    risk_score = plane.get('shade_risk_score', 0)
-                    loss_pct = plane.get('estimated_annual_loss_percent', 0)
+                # What We Found
+                if findings:
+                    if y < 150:
+                        c.showPage()
+                        y = height - 50
 
                     c.setFont("Helvetica-Bold", 10)
-                    c.drawString(70, y, f"• {plane_name}")
-                    y -= 13
+                    c.drawString(60, y, "What We Found:")
+                    y -= 14
 
                     c.setFont("Helvetica", 9)
-                    c.drawString(85, y, f"Shade Risk: {risk_score}/100 | Est. Annual Loss: {loss_pct}%")
-                    y -= 11
+                    for finding in findings[:3]:  # Show up to 3 findings
+                        if y < 50:
+                            c.showPage()
+                            y = height - 50
 
-                    # Dominant obstruction
-                    dom_obs = plane.get('dominant_obstruction')
-                    if dom_obs:
-                        obs_type = dom_obs.get('type', 'unknown')
-                        obs_height = dom_obs.get('height_m', 0)
-                        obs_distance = dom_obs.get('distance_m', 0)
-                        c.setFillColorRGB(0.4, 0.4, 0.4)
-                        c.drawString(85, y, f"Dominant: {obs_type} ({obs_height}m tall, {obs_distance}m away)")
+                        # Word wrap long findings (emojis already removed)
+                        words = finding.split()
+                        line = ""
+                        for word in words:
+                            test_line = line + word + " "
+                            if len(test_line) > 75:
+                                c.drawString(70, y, f"- {line.strip()}")
+                                y -= 11
+                                line = word + " "
+                            else:
+                                line = test_line
+                        if line:
+                            c.drawString(70, y, f"- {line.strip()}")
+                            y -= 11
+
+                    y -= 8
+
+                # When Shadows Affect Your Panels
+                if time_of_day:
+                    if y < 120:
+                        c.showPage()
+                        y = height - 50
+
+                    c.setFont("Helvetica-Bold", 10)
+                    c.drawString(60, y, "When Shadows Affect Your Panels:")
+                    y -= 14
+
+                    c.setFont("Helvetica", 9)
+
+                    morning = time_of_day.get('morning_6_9am', '')
+                    if morning:
+                        morning_text = "Heavy shade" if morning == 'high' else "Some shade" if morning == 'medium' else "Light shade" if morning == 'low' else "No shade"
+                        c.drawString(70, y, f"Morning (6-9 AM): {morning_text}")
+                        y -= 12
+
+                    midday = time_of_day.get('midday_9am_3pm', '')
+                    if midday:
+                        midday_text = "Heavy shade" if midday == 'high' else "Some shade" if midday == 'medium' else "Light shade" if midday == 'low' else "No shade"
+                        c.drawString(70, y, f"Peak Hours (9 AM-3 PM): {midday_text}")
+                        y -= 12
+
+                    afternoon = time_of_day.get('afternoon_3_6pm', '')
+                    if afternoon:
+                        afternoon_text = "Heavy shade" if afternoon == 'high' else "Some shade" if afternoon == 'medium' else "Light shade" if afternoon == 'low' else "No shade"
+                        c.drawString(70, y, f"Afternoon (3-6 PM): {afternoon_text}")
+                        y -= 12
+
+                    y -= 8
+
+                # Throughout the Year
+                if seasonal:
+                    if y < 100:
+                        c.showPage()
+                        y = height - 50
+
+                    c.setFont("Helvetica-Bold", 10)
+                    c.drawString(60, y, "Throughout the Year:")
+                    y -= 14
+
+                    c.setFont("Helvetica", 9)
+
+                    summer = seasonal.get('summer', '')
+                    if summer:
+                        summer_text = "Heavy shading" if summer == 'high' else "Moderate shading" if summer == 'medium' else "Light shading" if summer == 'low' else "No shading"
+                        c.drawString(70, y, f"Summer: {summer_text}")
+                        y -= 12
+
+                    winter = seasonal.get('winter', '')
+                    if winter:
+                        winter_text = "Heavy shading" if winter == 'high' else "Moderate shading" if winter == 'medium' else "Light shading" if winter == 'low' else "No shading"
+                        c.drawString(70, y, f"Winter: {winter_text}")
+                        y -= 12
+
+                    y -= 8
+
+                # What You Should Do / Our Recommendations
+                if recommendations:
+                    if y < 120:
+                        c.showPage()
+                        y = height - 50
+
+                    c.setFont("Helvetica-Bold", 10)
+                    header_text = "What You Should Do:" if shading_score > 50 else "Our Recommendations:"
+                    header_color = (0.8, 0, 0) if shading_score > 50 else (0.2, 0.4, 0.8)
+                    c.setFillColorRGB(*header_color)
+                    c.drawString(60, y, header_text)
+                    c.setFillColorRGB(0, 0, 0)
+                    y -= 14
+
+                    c.setFont("Helvetica", 9)
+                    for rec in recommendations[:3]:  # Show up to 3 recommendations
+                        if y < 50:
+                            c.showPage()
+                            y = height - 50
+
+                        # Word wrap recommendations (emojis already removed)
+                        words = rec.split()
+                        line = ""
+                        for word in words:
+                            test_line = line + word + " "
+                            if len(test_line) > 75:
+                                c.drawString(70, y, f"- {line.strip()}")
+                                y -= 11
+                                line = word + " "
+                            else:
+                                line = test_line
+                        if line:
+                            c.drawString(70, y, f"- {line.strip()}")
+                            y -= 11
+
+                    y -= 10
+
+            else:
+                # LEGACY/NON-HYBRID ANALYSIS (fallback)
+                # Overall summary
+                avg_risk = result.get('average_shade_risk', 0)
+                total_planes = result.get('total_roof_planes', 0)
+                total_obs = result.get('total_obstructions', 0)
+
+                c.drawString(60, y, f"Summary: {total_planes} roof plane(s), {total_obs} obstruction(s)")
+                y -= 14
+
+                # Check if using advanced analysis (has annual_energy_loss_percent in planes)
+                planes = result.get('planes', [])
+                is_advanced = any(plane.get('annual_energy_loss_percent') is not None for plane in planes)
+
+                if is_advanced:
+                    # Show overall shading level for advanced analysis
+                    avg_loss = result.get('average_annual_energy_loss', 0)
+                    overall_level = "High" if avg_loss > 15 else "Medium" if avg_loss > 5 else "Low"
+                    c.setFont("Helvetica-Bold", 10)
+                    c.drawString(60, y, "Overall Shading Level: ")
+                    c.setFillColorRGB(0.8, 0, 0) if avg_loss > 15 else c.setFillColorRGB(0.9, 0.5, 0) if avg_loss > 5 else c.setFillColorRGB(0, 0.6, 0)
+                    c.drawString(180, y, f"{overall_level}")
+                    c.setFillColorRGB(0, 0, 0)
+                    c.setFont("Helvetica", 9)
+                    c.drawString(220, y, f"(Avg {avg_loss}% loss)")
+                    y -= 18
+                elif not is_advanced and avg_risk:
+                    c.drawString(60, y, f"Average Shade Risk Score: {avg_risk}/100")
+                    y -= 18
+
+                # Per-plane results
+                for plane in planes[:5]:  # Show up to 5 planes
+                    if y < 100:
+                        c.showPage()
+                        y = height - 50
+
+                    plane_name = plane.get('plane_name', 'Unnamed')
+
+                    # Advanced analysis output
+                    if plane.get('annual_energy_loss_percent') is not None:
+                        c.setFont("Helvetica-Bold", 11)
+                        c.drawString(70, y, f"• {plane_name}")
+                        y -= 15
+
+                        # Key metrics
+                        annual_loss = plane.get('annual_energy_loss_percent', 0)
+                        peak_loss = plane.get('peak_hours_loss_percent', 0)
+                        annual_prod = plane.get('annual_production_kwh_m2', 0)
+                        potential_prod = plane.get('potential_production_kwh_m2', 0)
+
+                        # Determine shading level and production quality
+                        shading_level = "High" if annual_loss > 15 else "Medium" if annual_loss > 5 else "Low"
+                        production_ratio = annual_prod / potential_prod if potential_prod > 0 else 0
+                        production_quality = "Excellent" if production_ratio > 0.95 else "Good" if production_ratio > 0.85 else "Average" if production_ratio > 0.70 else "Poor"
+
+                        # Shading Level with color
+                        c.setFont("Helvetica-Bold", 9)
+                        c.drawString(85, y, "Shading Level: ")
+                        c.setFillColorRGB(0.8, 0, 0) if annual_loss > 15 else c.setFillColorRGB(0.9, 0.5, 0) if annual_loss > 5 else c.setFillColorRGB(0, 0.6, 0)
+                        c.drawString(160, y, f"{shading_level}")
+                        c.setFillColorRGB(0, 0, 0)
+                        c.setFont("Helvetica", 8)
+                        c.drawString(200, y, f"({annual_loss}% annual loss)")
+                        y -= 12
+
+                        # Production Quality
+                        c.setFont("Helvetica-Bold", 9)
+                        c.drawString(85, y, "Expected Production: ")
+                        prod_color = (0, 0.6, 0) if production_ratio > 0.95 else (0.2, 0.4, 0.8) if production_ratio > 0.85 else (0.9, 0.5, 0) if production_ratio > 0.70 else (0.8, 0, 0)
+                        c.setFillColorRGB(*prod_color)
+                        c.drawString(180, y, f"{production_quality}")
                         c.setFillColorRGB(0, 0, 0)
                         y -= 11
 
-                    # Notes
-                    notes = plane.get('notes', [])
-                    if notes:
-                        first_note = notes[0] if notes else ""
-                        if first_note:
-                            c.setFillColorRGB(0.3, 0.3, 0.3)
-                            c.drawString(85, y, first_note[:80])  # Truncate long notes
+                        c.setFont("Helvetica", 9)
+                        c.drawString(85, y, f"Power loss during strongest sunlight hours (10AM-4PM): {peak_loss}%")
+                        y -= 13
+
+                        # Worst shading moment
+                        worst = plane.get('worst_shading_moment')
+                        if worst and worst.get('timestamp'):
+                            c.setFillColorRGB(0.4, 0, 0)
+                            c.drawString(85, y, f"WARNING - Worst: {worst.get('timestamp')} - {worst.get('shaded_percent', 0):.1f}% shaded")
                             c.setFillColorRGB(0, 0, 0)
                             y -= 11
 
-                    y -= 6  # Extra spacing between planes
+                        # Best production moment
+                        best = plane.get('best_production_moment')
+                        if best and best.get('timestamp'):
+                            c.setFillColorRGB(0, 0.4, 0)
+                            c.drawString(85, y, f"GOOD - Best: {best.get('timestamp')} - {best.get('irradiance_w_m2', 0):.0f} W/m²")
+                            c.setFillColorRGB(0, 0, 0)
+                            y -= 13
 
-            # Add overall recommendation at the end of advanced analysis
-            if is_advanced:
-                if y < 80:
-                    c.showPage()
-                    y = height - 50
+                        # Recommendations
+                        recommendations = plane.get('recommendations', [])
+                        if recommendations:
+                            c.setFont("Helvetica-Bold", 9)
+                            c.drawString(85, y, "Recommendations:")
+                            y -= 11
+                            c.setFont("Helvetica", 8)
+                            for rec in recommendations[:3]:  # Show up to 3 recommendations
+                                if y < 50:
+                                    c.showPage()
+                                    y = height - 50
+                                # Remove emoji for cleaner PDF
+                                rec_text = rec.replace('✓', '').replace('⚠️', '').replace('❌', '').replace('📊', '').strip()
+                                c.drawString(95, y, f"• {rec_text[:70]}")
+                                y -= 10
 
-                y -= 10
-                avg_loss = result.get('average_annual_energy_loss', 0)
+                        y -= 8  # Extra spacing between planes
 
-                # Recommendation box
-                c.setStrokeColorRGB(0.8, 0, 0) if avg_loss > 15 else c.setStrokeColorRGB(0.9, 0.5, 0) if avg_loss > 5 else c.setStrokeColorRGB(0, 0.6, 0)
-                c.setLineWidth(2)
-                c.rect(55, y - 35, 500, 40)
-                c.setStrokeColorRGB(0, 0, 0)
-                c.setLineWidth(1)
+                    # Simple/legacy analysis output
+                    else:
+                        risk_score = plane.get('shade_risk_score', 0)
+                        loss_pct = plane.get('estimated_annual_loss_percent', 0)
 
-                c.setFont("Helvetica-Bold", 10)
-                recommendation_icon = "WARNING" if avg_loss > 15 else "INFO" if avg_loss > 5 else "CHECK"
-                c.drawString(65, y - 10, f"{recommendation_icon} - RECOMMENDATION:")
-                y -= 20
+                        c.setFont("Helvetica-Bold", 10)
+                        c.drawString(70, y, f"• {plane_name}")
+                        y -= 13
 
-                c.setFont("Helvetica", 9)
-                recommendation_text = ""
-                if avg_loss > 15:
-                    recommendation_text = "Significant shading detected. Consider obstruction mitigation before installation to maximize ROI."
-                elif avg_loss > 5:
-                    recommendation_text = "Moderate shading present. Site is suitable for solar with expected performance reduction."
-                else:
-                    recommendation_text = "Excellent site conditions! Minimal shading impact - ideal for solar installation."
+                        c.setFont("Helvetica", 9)
+                        c.drawString(85, y, f"Shade Risk: {risk_score}/100 | Est. Annual Loss: {loss_pct}%")
+                        y -= 11
 
-                c.drawString(65, y - 10, recommendation_text)
-                y -= 40
+                        # Dominant obstruction
+                        dom_obs = plane.get('dominant_obstruction')
+                        if dom_obs:
+                            obs_type = dom_obs.get('type', 'unknown')
+                            obs_height = dom_obs.get('height_m', 0)
+                            obs_distance = dom_obs.get('distance_m', 0)
+                            c.setFillColorRGB(0.4, 0.4, 0.4)
+                            c.drawString(85, y, f"Dominant: {obs_type} ({obs_height}m tall, {obs_distance}m away)")
+                            c.setFillColorRGB(0, 0, 0)
+                            y -= 11
+
+                        # Notes
+                        notes = plane.get('notes', [])
+                        if notes:
+                            first_note = notes[0] if notes else ""
+                            if first_note:
+                                c.setFillColorRGB(0.3, 0.3, 0.3)
+                                c.drawString(85, y, first_note[:80])  # Truncate long notes
+                                c.setFillColorRGB(0, 0, 0)
+                                y -= 11
+
+                        y -= 6  # Extra spacing between planes
+
+                # Add overall recommendation at the end of advanced analysis
+                if is_advanced:
+                    if y < 80:
+                        c.showPage()
+                        y = height - 50
+
+                    y -= 10
+                    avg_loss = result.get('average_annual_energy_loss', 0)
+
+                    # Recommendation box
+                    c.setStrokeColorRGB(0.8, 0, 0) if avg_loss > 15 else c.setStrokeColorRGB(0.9, 0.5, 0) if avg_loss > 5 else c.setStrokeColorRGB(0, 0.6, 0)
+                    c.setLineWidth(2)
+                    c.rect(55, y - 35, 500, 40)
+                    c.setStrokeColorRGB(0, 0, 0)
+                    c.setLineWidth(1)
+
+                    c.setFont("Helvetica-Bold", 10)
+                    recommendation_icon = "WARNING" if avg_loss > 15 else "INFO" if avg_loss > 5 else "CHECK"
+                    c.drawString(65, y - 10, f"{recommendation_icon} - RECOMMENDATION:")
+                    y -= 20
+
+                    c.setFont("Helvetica", 9)
+                    recommendation_text = ""
+                    if avg_loss > 15:
+                        recommendation_text = "Significant shading detected. Consider obstruction mitigation before installation to maximize ROI."
+                    elif avg_loss > 5:
+                        recommendation_text = "Moderate shading present. Site is suitable for solar with expected performance reduction."
+                    else:
+                        recommendation_text = "Excellent site conditions! Minimal shading impact - ideal for solar installation."
+
+                    c.drawString(65, y - 10, recommendation_text)
+                    y -= 40
 
         # Compliance analysis - detailed display
         elif kind == "compliance" and status == "done" and result:

@@ -564,3 +564,252 @@ Be specific and detailed. If you cannot determine something from the image, note
             "error": f"Unexpected error: {str(e)}",
             "analysis_method": "error"
         }
+
+
+def analyze_shading_from_geometry_data(roof_planes: list, obstructions: list, latitude: float = None, longitude: float = None) -> Dict:
+    """
+    Analyze shading using Gemini AI based on geometry data (WITHOUT needing a screenshot).
+
+    Args:
+        roof_planes: List of roof plane data with polygon coordinates, tilt_deg, azimuth_deg
+        obstructions: List of obstruction data with polygon coordinates, type, height_m
+        latitude: Project latitude for sun path analysis
+        longitude: Project longitude for sun path analysis
+
+    Returns:
+        Dict with AI analysis of shading impact
+    """
+    api_key = settings.GEMINI_API_KEY
+
+    if not api_key:
+        return {
+            "error": "Gemini API key not configured",
+            "analysis_method": "no_api_key"
+        }
+
+    # Build text description of geometry
+    geometry_description = "**ROOF GEOMETRY:**\n\n"
+    for plane in roof_planes:
+        geometry_description += f"- **{plane.get('name', 'Roof')}**: "
+        geometry_description += f"Tilt {plane.get('tilt_deg', 0)}°, Azimuth {plane.get('azimuth_deg', 180)}°\n"
+
+    geometry_description += "\n**OBSTRUCTIONS:**\n\n"
+    for obs in obstructions:
+        geometry_description += f"- **{obs.get('type', 'Object')}**: "
+        geometry_description += f"Height {obs.get('height_m', 0)}m\n"
+
+    # Build location context
+    location_context = ""
+    if latitude and longitude:
+        location_context = f"\n**Project Location:** Latitude {latitude}°, Longitude {longitude}°\n"
+
+    prompt = f"""You are a solar energy expert analyzing shading impact on a solar installation.
+
+{geometry_description}
+{location_context}
+
+**Task:** Analyze the shading impact from these obstructions on the solar panels.
+
+**Consider:**
+1. **Obstruction Heights**: Taller objects cast longer shadows
+2. **Sun Path**:
+   - Northern hemisphere: sun travels east → south → west
+   - Southern hemisphere: sun travels east → north → west
+3. **Roof Orientation**:
+   - Azimuth 180° = south-facing (best for northern hemisphere)
+   - Azimuth 0° = north-facing (best for southern hemisphere)
+4. **Daily Patterns**: Morning shadows from east, evening from west
+5. **Seasonal Impact**: Sun lower in winter = longer shadows
+6. **Proximity**: Obstructions closer to panels have more impact
+
+**CRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanations, just pure JSON.**
+
+**JSON Schema (respond with this exact structure):**
+{{
+  "overall_shade_risk_score": 75,
+  "estimated_annual_loss_percent": 15,
+  "analysis_confidence": "high",
+  "findings": [
+    "Finding 1 description",
+    "Finding 2 description"
+  ],
+  "dominant_obstruction": {{
+    "type": "tree",
+    "impact_description": "Description of impact",
+    "primary_impact_time": "midday"
+  }},
+  "time_of_day_impact": {{
+    "morning_6_9am": "low",
+    "midday_9am_3pm": "high",
+    "afternoon_3_6pm": "medium"
+  }},
+  "seasonal_impact": {{
+    "summer": "medium",
+    "winter": "high"
+  }},
+  "recommendations": [
+    "Recommendation 1",
+    "Recommendation 2"
+  ]
+}}
+
+**IMPORTANT**:
+- Do NOT wrap JSON in markdown code blocks (no ```json)
+- Do NOT add any text before or after the JSON
+- overall_shade_risk_score: integer 0-100
+- estimated_annual_loss_percent: integer 0-25
+- analysis_confidence: exactly one of "high", "medium", or "low"
+- All time/seasonal impacts: exactly one of "none", "low", "medium", or "high"
+
+Be specific about which obstructions cause the most shading and when."""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "temperature": 0.3,
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 8192,  # INCREASED from 2048 - was cutting off JSON!
+            "responseMimeType": "application/json"  # Force JSON output
+        }
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+
+        # DEBUG: Print full API response
+        print("=" * 80)
+        print("DEBUG: GEMINI API RESPONSE")
+        print("=" * 80)
+        import json as json_mod
+        print(f"Full response: {json_mod.dumps(result, indent=2)[:2000]}")
+        print("=" * 80)
+
+        if "candidates" in result and len(result["candidates"]) > 0:
+            candidate = result["candidates"][0]
+            text_content = candidate["content"]["parts"][0]["text"]
+            finish_reason = candidate.get("finishReason", "UNKNOWN")
+
+            # DEBUG: Print extracted text
+            print("DEBUG: EXTRACTED TEXT CONTENT")
+            print(f"Finish Reason: {finish_reason}")
+            if finish_reason == "MAX_TOKENS":
+                print("⚠️  WARNING: Response was TRUNCATED due to token limit!")
+            print(f"Type: {type(text_content)}")
+            print(f"Is None: {text_content is None}")
+            print(f"Length: {len(text_content) if text_content else 'N/A'}")
+            print(f"First 500 chars: {repr(text_content[:500]) if text_content else 'NONE!'}")
+            print("=" * 80)
+
+            # Extract JSON from response
+            import json
+            import re
+
+            # Try multiple JSON extraction strategies
+            json_str = None
+
+            if text_content:  # Check if text_content is not None
+                # Strategy 1: Look for ```json code block
+                json_match = re.search(r'```json\s*(.*?)\s*```', text_content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                    print("DEBUG: Used Strategy 1 (json block)")
+                # Strategy 2: Look for any code block
+                elif '```' in text_content:
+                    code_match = re.search(r'```\s*(.*?)\s*```', text_content, re.DOTALL)
+                    if code_match:
+                        json_str = code_match.group(1)
+                        print("DEBUG: Used Strategy 2 (code block)")
+                # Strategy 3: Look for object starting with {
+                elif '{' in text_content:
+                    # Find first { and last }
+                    start = text_content.find('{')
+                    end = text_content.rfind('}')
+                    if start != -1 and end != -1 and end > start:
+                        json_str = text_content[start:end+1]
+                        print(f"DEBUG: Used Strategy 3 (extract {{ }}) from {start} to {end}")
+                    elif start != -1:
+                        # Found { but no closing } - response was truncated!
+                        print(f"WARNING: Found opening {{ at {start} but no closing }} - response truncated!")
+                        json_str = None  # Will trigger fallback
+                # Strategy 4: Use entire response
+                else:
+                    json_str = text_content.strip()
+                    print("DEBUG: Used Strategy 4 (whole text)")
+            else:
+                print("ERROR: text_content is None!")
+                json_str = None
+
+            print(f"DEBUG: json_str type: {type(json_str)}, is None: {json_str is None}")
+            print(f"DEBUG: json_str preview: {repr(json_str[:300]) if json_str else 'NONE'}")
+            print("=" * 80)
+
+            try:
+                analysis = json.loads(json_str)
+                analysis["analysis_method"] = "gemini_ai_geometry_only"
+                return analysis
+            except json.JSONDecodeError as e:
+                # JSON parsing failed - try to extract key information from text
+                # Return a fallback response rather than failing completely
+                import re
+
+                # Try to extract numeric scores from text
+                score_match = re.search(r'(?:shade.*?risk.*?score|overall.*?score).*?(\d+)', text_content, re.IGNORECASE)
+                loss_match = re.search(r'(?:annual.*?loss|loss.*?percent).*?(\d+)', text_content, re.IGNORECASE)
+
+                fallback_score = int(score_match.group(1)) if score_match else 50
+                fallback_loss = int(loss_match.group(1)) if loss_match else 10
+
+                # Return structured fallback
+                return {
+                    "overall_shade_risk_score": fallback_score,
+                    "estimated_annual_loss_percent": fallback_loss,
+                    "analysis_confidence": "low",
+                    "findings": [
+                        "AI analysis completed but returned non-standard format",
+                        f"Extracted shade risk: {fallback_score}/100",
+                        f"Estimated annual loss: {fallback_loss}%"
+                    ],
+                    "dominant_obstruction": {
+                        "type": "unknown",
+                        "impact_description": "AI response could not be fully parsed",
+                        "primary_impact_time": "unknown"
+                    },
+                    "time_of_day_impact": {
+                        "morning_6_9am": "unknown",
+                        "midday_9am_3pm": "unknown",
+                        "afternoon_3_6pm": "unknown"
+                    },
+                    "seasonal_impact": {
+                        "summer": "unknown",
+                        "winter": "unknown"
+                    },
+                    "recommendations": [
+                        "AI analysis partially successful - review mathematical analysis for accuracy"
+                    ],
+                    "analysis_method": "gemini_ai_geometry_only",
+                    "parse_warning": f"JSON parsing failed: {str(e)}",
+                    "raw_response_preview": text_content[:500] if len(text_content) > 500 else text_content
+                }
+        else:
+            return {
+                "error": "No analysis returned from Gemini",
+                "analysis_method": "gemini_no_result"
+            }
+
+    except requests.exceptions.RequestException as e:
+        return {
+            "error": f"API request failed: {str(e)}",
+            "analysis_method": "api_error"
+        }
+    except Exception as e:
+        return {
+            "error": f"Unexpected error: {str(e)}",
+            "analysis_method": "error"
+        }
