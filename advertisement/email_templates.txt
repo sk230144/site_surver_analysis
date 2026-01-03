@@ -1,0 +1,218 @@
+===================================================================
+SOLAR AI PLATFORM - EMAIL TEMPLATES FOR MANAGERS & CEOs
+===================================================================
+
+These short, punchy emails are designed to spark curiosity and get demo requests.
+
+
+-------------------------------------------------------------------
+EMAIL TEMPLATE 1: The Cost Shock
+-------------------------------------------------------------------
+
+Subject: Your site surveys cost $1,500. Ours take 10 minutes.
+
+Hi [Name],
+
+Quick question: How much are you spending on site surveyors right now?
+
+Most solar companies pay $1,500-$3,000 per survey and wait 5-10 days for results.
+
+We built an AI that does the same analysis in 10 minutes. From photos.
+
+- Shading analysis with AI vision
+- Electrical panel assessment (no electrician needed)
+- Roof risk evaluation
+- NEC 2023+ compliance check
+- Professional PDF report
+
+I've attached a sample report and 1-page overview.
+
+Worth a 15-minute demo?
+
+[Your Name]
+Live Demo: https://site-surver-analysis.vercel.app/
+
+
+-------------------------------------------------------------------
+EMAIL TEMPLATE 2: The Pain Point
+-------------------------------------------------------------------
+
+Subject: Tired of waiting 10 days for site survey results?
+
+[Name],
+
+Your site surveyor just told you "5-10 business days."
+
+Your client is waiting. Your competitor already sent their proposal.
+
+What if you could send a complete site analysis in 10 minutes instead?
+
+Our AI platform analyzes roof photos and delivers:
+→ Shading analysis (30 seconds)
+→ Electrical assessment (20 seconds)
+→ Roof condition report (40 seconds)
+→ Code compliance verification (instant)
+→ Professional PDF (1 click)
+
+No site visit. No electrician. No waiting.
+
+Sample report attached. See it in action?
+
+Best,
+[Your Name]
+
+P.S. - Try it yourself: https://site-surver-analysis.vercel.app/
+
+
+-------------------------------------------------------------------
+EMAIL TEMPLATE 3: The Competitor Edge
+-------------------------------------------------------------------
+
+Subject: How solar companies are closing deals 10x faster
+
+Hi [Name],
+
+While your competitors wait days for site surveys, some companies are sending proposals the same day.
+
+They're using AI.
+
+Our platform replaces:
+✗ $1,500 site surveyor → AI photo analysis
+✗ $500 electrician visit → AI panel assessment
+✗ Manual shading calculations → AI vision + math
+✗ 5-10 day timeline → 10 minutes
+
+The analysis quality? Better than manual. (See attached sample report)
+
+Want to see how it works with your actual project data?
+
+[Your Name]
+https://site-surver-analysis.vercel.app/
+
+
+-------------------------------------------------------------------
+EMAIL TEMPLATE 4: The ROI Teaser
+-------------------------------------------------------------------
+
+Subject: $14,000/month → $0 (site survey costs)
+
+[Name],
+
+If you're doing 10 solar projects per month:
+
+Current cost: $14,000 in site surveys
+With our AI: Essentially $0
+
+That's not a typo.
+
+Upload photos → AI analyzes everything → Download report.
+No surveyors. No electricians. No waiting.
+
+I've attached a real report our AI generated.
+
+Can I show you how this works live?
+
+Regards,
+[Your Name]
+
+Demo link: https://site-surver-analysis.vercel.app/
+
+
+-------------------------------------------------------------------
+EMAIL TEMPLATE 5: The Curiosity Hook
+-------------------------------------------------------------------
+
+Subject: We replaced your site surveyor with AI
+
+Hi [Name],
+
+Bold claim, I know.
+
+But we actually did it:
+
+→ Upload 3 photos (roof, electrical panel, surroundings)
+→ AI analyzes shading, electrical capacity, roof condition
+→ Get professional report in 10 minutes
+
+No jokes. No exaggeration.
+
+The sample report is attached. Look at the detail.
+
+Now imagine getting that for every project. Same day. Zero cost.
+
+Interested in a quick demo?
+
+[Your Name]
+Try it: https://site-surver-analysis.vercel.app/
+
+
+-------------------------------------------------------------------
+EMAIL TEMPLATE 6: The Simple Ask
+-------------------------------------------------------------------
+
+Subject: 10-minute site surveys (yes, really)
+
+[Name],
+
+Site surveys take 5-10 days and cost $1,500.
+
+We do them in 10 minutes with AI.
+
+Same accuracy. Better analysis. Instant results.
+
+Sample report attached.
+
+Worth a demo call?
+
+[Your Name]
+https://site-surver-analysis.vercel.app/
+
+
+-------------------------------------------------------------------
+EMAIL TEMPLATE 7: The Problem-Solution
+-------------------------------------------------------------------
+
+Subject: The site survey bottleneck is over
+
+Hi [Name],
+
+Three problems every solar company faces:
+
+1. Site surveys are expensive ($1,500+)
+2. They're slow (5-10 days minimum)
+3. Shading analysis has 15-30% error margin
+
+We solved all three with AI:
+
+1. Photo upload (free, instant)
+2. Analysis in 10 minutes (AI-powered)
+3. 100% accurate (AI vision + solar math)
+
+Check the attached sample report. This is what AI can do.
+
+Can I show you a live demo with your project?
+
+Best,
+[Your Name]
+Live platform: https://site-surver-analysis.vercel.app/
+
+
+-------------------------------------------------------------------
+USAGE TIPS:
+-------------------------------------------------------------------
+
+1. Keep subject lines under 50 characters - make them scannable
+2. First sentence should shock or intrigue them
+3. Use numbers ($1,500, 10 minutes) - they're concrete and memorable
+4. Always mention the sample report attachment
+5. End with a soft ask, not a hard pitch ("Worth a demo?" vs "Schedule now")
+6. Include the live demo URL so they can explore themselves
+7. Send from a real email (not noreply@) so they can respond easily
+
+BEST PRACTICES:
+- Send Tuesday-Thursday, 9-11 AM (highest open rates)
+- Personalize [Name] with their actual first name
+- If no response in 3 days, send a short follow-up: "Hey [Name], did you get a chance to check out that sample report? Happy to answer any questions."
+- Track which template gets the best response rate and use that as your primary
+
+===================================================================

@@ -65,7 +65,11 @@
       "Bash(git push:*)",
       "Bash(PYTHONPATH=. ../.venv/Scripts/python:*)",
       "Bash(PYTHONPATH=. .venv/Scripts/python:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(pip install:*)",
+      "Bash(mkdir:*)",
+      "Bash(move Solar_AI_Platform_Proposal.pdf advertisement)",
+      "Bash(mv:*)"
     ]
   }
 }
