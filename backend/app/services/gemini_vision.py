@@ -362,3 +362,205 @@ Be realistic and practical. If obstructions are far from panels, shade risk shou
             "error": f"Unexpected error: {str(e)}",
             "analysis_method": "error"
         }
+
+
+def analyze_electrical_panel_with_ai(image_path: str, panel_specs: Optional[Dict] = None) -> Dict:
+    """
+    Analyze electrical panel photo using Gemini Vision AI for condition assessment.
+
+    Detects:
+    - Panel age and manufacturer
+    - Physical condition (rust, corrosion, damage)
+    - Wiring quality and organization
+    - Safety concerns (exposed conductors, burn marks, overheating signs)
+    - Available breaker slots
+    - Panel rating and main breaker size (if visible)
+
+    Args:
+        image_path: Path to electrical panel photo
+        panel_specs: Optional dict with known specs (panel_rating_a, main_breaker_a, age)
+
+    Returns:
+        Dict with AI assessment including condition ratings and detected issues
+    """
+    api_key = settings.GEMINI_API_KEY
+
+    if not api_key:
+        return {
+            "error": "Gemini API key not configured",
+            "analysis_method": "no_api_key"
+        }
+
+    # Read and encode image
+    try:
+        with open(image_path, "rb") as image_file:
+            image_data = base64.b64encode(image_file.read()).decode('utf-8')
+    except Exception as e:
+        return {
+            "error": f"Error reading image: {str(e)}",
+            "analysis_method": "file_error"
+        }
+
+    # Build context from known specs
+    context = ""
+    if panel_specs:
+        context = f"\n\n**Known Specifications:**\n"
+        if panel_specs.get("panel_rating_a"):
+            context += f"- Panel Rating: {panel_specs['panel_rating_a']}A\n"
+        if panel_specs.get("main_breaker_a"):
+            context += f"- Main Breaker: {panel_specs['main_breaker_a']}A\n"
+        if panel_specs.get("panel_age"):
+            context += f"- Reported Age: {panel_specs['panel_age']}\n"
+
+    # Prepare comprehensive prompt for electrical panel analysis
+    prompt = f"""You are an expert electrical inspector analyzing an electrical panel photo for solar installation compatibility.
+
+**Analysis Required:**
+
+1. **Panel Identification:**
+   - Manufacturer and model (if visible)
+   - Estimated age based on design/style
+   - Panel rating (amperage) if label visible
+   - Main breaker size if visible
+
+2. **Physical Condition Assessment:**
+   - Overall condition: excellent / good / fair / poor
+   - Rust or corrosion present?
+   - Physical damage or cracks?
+   - Burn marks or signs of overheating?
+   - Panel door and enclosure condition
+
+3. **Wiring Quality:**
+   - Wire organization: neat / acceptable / messy / dangerous
+   - Wire insulation condition
+   - Proper wire sizing (if visible)
+   - Evidence of amateur work or code violations
+   - Exposed conductors or safety hazards
+
+4. **Safety Concerns:**
+   - Any immediate safety hazards?
+   - Signs of previous electrical issues?
+   - Federal Pacific or Zinsco panel (known fire hazards)?
+   - Double-tapped breakers?
+   - Missing knockout covers?
+
+5. **Solar Installation Readiness:**
+   - Available breaker slots for solar breaker?
+   - Space for load center if needed?
+   - Overall suitability for solar addition
+
+{context}
+
+**Respond in JSON format:**
+{{
+  "panel_identification": {{
+    "manufacturer": "string or unknown",
+    "estimated_age_years": number or null,
+    "panel_rating_visible": "yes/no/partial",
+    "detected_rating_a": number or null,
+    "main_breaker_visible": "yes/no",
+    "detected_main_breaker_a": number or null
+  }},
+  "physical_condition": {{
+    "overall_rating": "excellent/good/fair/poor",
+    "rust_corrosion": "none/minor/moderate/severe",
+    "damage": "none/minor/moderate/severe",
+    "burn_marks": boolean,
+    "overheating_signs": boolean,
+    "condition_notes": ["string"]
+  }},
+  "wiring_quality": {{
+    "organization": "excellent/good/fair/poor",
+    "insulation_condition": "excellent/good/fair/poor",
+    "amateur_work_detected": boolean,
+    "wiring_notes": ["string"]
+  }},
+  "safety_concerns": {{
+    "immediate_hazards": ["string"],
+    "known_problematic_brand": boolean,
+    "double_tapped_breakers": boolean,
+    "missing_covers": boolean,
+    "safety_rating": "safe/concerns/unsafe"
+  }},
+  "solar_readiness": {{
+    "available_breaker_slots": number or null,
+    "suitable_for_solar": "yes/no/maybe",
+    "required_actions": ["string"],
+    "overall_assessment": "string"
+  }},
+  "ai_confidence": "high/medium/low",
+  "analysis_notes": ["string"]
+}}
+
+Be specific and detailed. If you cannot determine something from the image, note it clearly."""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {
+                    "inline_data": {
+                        "mime_type": "image/jpeg",
+                        "data": image_data
+                    }
+                }
+            ]
+        }],
+        "generationConfig": {
+            "temperature": 0.2,  # Lower temperature for more factual analysis
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 2048,
+        }
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+
+        if "candidates" in result and len(result["candidates"]) > 0:
+            text_content = result["candidates"][0]["content"]["parts"][0]["text"]
+
+            # Extract JSON from response
+            import json
+            import re
+
+            # Try to find JSON block in response
+            json_match = re.search(r'```json\s*(.*?)\s*```', text_content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                # Try to parse entire response as JSON
+                json_str = text_content.strip()
+
+            try:
+                analysis = json.loads(json_str)
+                analysis["analysis_method"] = "gemini_vision_ai"
+                analysis["raw_response"] = text_content  # Include full response for debugging
+                return analysis
+            except json.JSONDecodeError:
+                # Return text response if JSON parsing fails
+                return {
+                    "error": "Could not parse AI response as JSON",
+                    "raw_response": text_content,
+                    "analysis_method": "gemini_text_only"
+                }
+        else:
+            return {
+                "error": "No analysis returned from Gemini",
+                "analysis_method": "gemini_no_result"
+            }
+
+    except requests.exceptions.RequestException as e:
+        return {
+            "error": f"API request failed: {str(e)}",
+            "analysis_method": "api_error"
+        }
+    except Exception as e:
+        return {
+            "error": f"Unexpected error: {str(e)}",
+            "analysis_method": "error"
+        }

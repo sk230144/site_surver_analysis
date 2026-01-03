@@ -61,7 +61,10 @@
       "Bash(.venv/Scripts/alembic revision:*)",
       "Bash(rm:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(PYTHONPATH=. ../.venv/Scripts/python:*)",
+      "Bash(PYTHONPATH=. .venv/Scripts/python:*)"
     ]
   }
 }
